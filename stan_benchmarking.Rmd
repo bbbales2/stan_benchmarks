@@ -33,6 +33,7 @@ However, in some models there are correlations in the posterior parameters such 
 - Minimum ESS/draw in sampling
 - Minimum ESS/second in sampling
 - Number of leapfrog steps
+- Time per gradient
 
 And the last thing we would want to check is the stability of adaptation, so we would look for variation of all of these metrics under many different simulations.
 
@@ -60,6 +61,7 @@ The question is how much this matters in practice.
 
 - Time in warmup
 - Time sampling
+- Time per gradient
 
 ## Points of comparison
 
