@@ -1,0 +1,67 @@
+---
+title: "Benchmarking Stan"
+author: "Ari Hartikainen & Ben Bales"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The goal of this document is to outline the benchmark needs of two pull requests in Stan. These pull requests need benchmarks to get them accepted.
+
+# Automatic Metric Selection
+
+Code is available in Stan pull [#2815](https://github.com/stan-dev/stan/pull/2815).
+
+This pull requests introduces the new option, `adapt metric=auto_e`, that automatically switches between `adapt metric=diag_e` and `adapt metric=dense_e` during warmup (and then picks which is best for sampling).
+
+Stan currently uses the default `adapt metric=diag_e` and does nothing else. This has the effect of scaling the unconstrained coordinates by their marginal standard deviations, so that parameters on different scales can be rescaled to look similar to the internal MCMC algorithms in Stan (parameters on wildly different scales will NUTS problems).
+
+However, in some models there are correlations in the posterior parameters such that rescaling by the marginal standard deviations is not enough (it would be better to scale in a way to get rid of those correlations). In these models the dense metric is very helpful. Right now it is up to the Stan user to pick between the dense and diagonal metrics, and this pull request tries to do this automatically. An upside to this is that a different metric may be better at different points in warmup, indeed, it is possible that on a model where dense adaptation is best after a long warmup, it is still best to do the early warmup with a diagonal mass matrix, which automatic switching can handle.
+
+## Relevant performance metrics
+
+- Time in warmup
+- Time sampling
+- Number of divergences
+- Number of max treedepths
+- Minimum ESS/draw in sampling
+- Minimum ESS/second in sampling
+- Number of leapfrog steps
+
+And the last thing we would want to check is the stability of adaptation, so we would look for variation of all of these metrics under many different simulations.
+
+## Points of comparison
+
+The new option in this case is `adapt metric=auto_e`. The natural points of comparison are:
+
+- cmdstan release, `adapt metric=diag_e`
+- cmdstan release, `adapt metric=dense_e`
+- cmdstan develop + this pull, `adapt_metric=diag_e`
+- cmdstan develop + this pull, `adapt_metric=dense_e`
+- cmdstan develop + this pull, `adapt_metric=auto_e`
+
+The release compares this pull directly with the release performance, and the develop comparisons compare all the different algorithm options directly.
+
+# Avoiding unnecessary Cholesky decompositions
+
+Code is available in Stan pull [#2894](https://github.com/stan-dev/stan/pull/2894).
+
+This pull fixes a performance problem for `adapt metric=dense_e`. In the current release version of Stan there is a Cholesky of the inverse metric recomputed at every HMC step that instead could be computed only when the metric is changed and saved.
+
+The question is how much this matters in practice.
+
+## Relevant performance metrics
+
+- Time in warmup
+- Time sampling
+
+## Points of comparison
+
+- cmdstan release, `adapt metric=dense_e`
+- cmdstan develop + this pull, `adapt metric=dense_e`
