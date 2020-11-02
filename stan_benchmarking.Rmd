@@ -67,3 +67,22 @@ The question is how much this matters in practice.
 
 - cmdstan release, `adapt metric=dense_e`
 - cmdstan develop + this pull, `adapt metric=dense_e`
+
+# Informal todo list
+
+## A/B comparisons
+
+- Run benchmarks of Cholesky branch https://github.com/stan-dev/stan/pull/2894. That means benchmarking:
+  - branch with `adapt metric=dense_e`
+  - release with `adapt metric=dense_e`
+  - develop with `adapt metric=dense_e`
+  - branch with `adapt metric=diag_e`
+  - release with `adapt metric=diag_e`
+  - develop with `adapt metric=diag_e`
+- The primary differences should be in the first two, but the rest of the benchmarks will give us a sense of how repeatable things are anyway
+- This will allow us to develop visualization for comparing two cmdstan branch configurations
+
+## Time series comparisons
+
+- Lower priority, but just to have data to play with for plotting it would be good to benchmark a series of develop commits with `adapt metric=diag_e`
+  - This will let us develop visualization for benchmarks of a sequence of commits
