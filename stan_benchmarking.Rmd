@@ -16,7 +16,7 @@ The goal of this document is to outline the benchmark needs of two pull requests
 
 # Automatic Metric Selection
 
-Code is available in Stan pull [#2815](https://github.com/stan-dev/stan/pull/2815).
+Code is available in Stan pull [#2815](https://github.com/stan-dev/stan/pull/2815). This requires a custom version of cmdstan to run ([#729](https://github.com/stan-dev/cmdstan/pull/729)).
 
 This pull requests introduces the new option, `adapt metric=auto_e`, that automatically switches between `adapt metric=diag_e` and `adapt metric=dense_e` during warmup (and then picks which is best for sampling).
 
@@ -37,15 +37,22 @@ However, in some models there are correlations in the posterior parameters such 
 
 And the last thing we would want to check is the stability of adaptation, so we would look for variation of all of these metrics under many different simulations.
 
-## Points of comparison
+## Benchmarking
 
-The new option in this case is `adapt metric=auto_e`. The natural points of comparison are:
+Benchmarking this requires both a cmdstan and a stan.
 
-- cmdstan release, `adapt metric=diag_e`
-- cmdstan release, `adapt metric=dense_e`
-- cmdstan develop + this pull, `adapt_metric=diag_e`
-- cmdstan develop + this pull, `adapt_metric=dense_e`
-- cmdstan develop + this pull, `adapt_metric=auto_e`
+`stan-dev/cmdstan` branch `feature/issue-2814-warmup-auto`
+`stan-dev/stan` branch `feature/issue-2814-warmup-auto`
+
+The new option in this case is `adapt metric=auto_e`. The points of comparison are:
+
+- cmdstan release, `sample algorithm=hmc metric=diag_e`
+- cmdstan release, `sample algorithm=hmc metric=dense_e`
+- cmdstan develop, `sample algorithm=hmc metric=diag_e`
+- cmdstan develop, `sample algorithm=hmc metric=dense_`
+- custom cmdstan/stan, `sample algorithm=hmc metric=diag_e`
+- custom cmdstan/stan, `sample algorithm=hmc metric=dense_e`
+- custom cmdstan/stan, `sample algorithm=hmc metric=auto_e`
 
 The release compares this pull directly with the release performance, and the develop comparisons compare all the different algorithm options directly.
 
@@ -63,26 +70,51 @@ The question is how much this matters in practice.
 - Time sampling
 - Time per gradient
 
-## Points of comparison
+## Benchmarking
 
-- cmdstan release, `adapt metric=dense_e`
-- cmdstan develop + this pull, `adapt metric=dense_e`
+This can use the develop cmdstan, but it needs the custom Stan.
+
+Stan repo `https://github.com/stan-dev/stan.git`, branch `feature/issue-2881-dense-metric-decomposition`
+
+- custom stan `sample algorithm=hmc metric=dense_e`
+- cmdstan release with `sample algorithm=hmc metric=dense_e`
+- cmdstan develop with `sample algorithm=hmc metric=dense_e`
+- custom stan `sample algorithm=hmc metric=diag_e`
+- cmdstan release with `sample algorithm=hmc metric=diag_e`
+- cmdstan develop with `sample algorithm=hmc metric=diag_e`
+
+The primary differences should be in the first two
 
 # Informal todo list
 
+## Duplicate benchmarks
+
+In both of the above comparisons we want benchmarks on
+
+- cmdstan release with `sample algorithm=hmc metric=dense_e`
+- cmdstan release with `sample algorithm=hmc metric=diag_e`
+- cmdstan develop with `sample algorithm=hmc metric=dense_e`
+- cmdstan develop with `sample algorithm=hmc metric=diag_e`
+
+It would be nice to only ever do these benchmarks a couple times (and not every time there is a comparison).
+
+To do this the benchmarks need to be:
+
+- Reproducible. Presumably this is a requirement of all the benchmarks here, but it needs to be that benchmarks produced by a computer on one day basically match those benchmarks reproduced on a computer on a different day
+
+- Translate-able across computers. Probably the only way this happens is if there is a common reference to compare to. If it's possible to ensure that the ratio of performance on one branch and one computer to another branch and another computer is reproducible (which if the divisor or the divident are, seems like they should be), then we can make adjustments between the different computers we benchmark on.
+
+## Parallel benchmarks
+
+It would be much more convenient I think to run chains in parallel when benchmarking. A lot of models are memory bound though, and so this means that running more than a couple chains will fill up memory and make stuff slow.
+
+Unless we do experiments to figure out how to make adjustments between the parallel chains and the single chains, we should probably do all the benchmarks with single chains.
+
 ## A/B comparisons
 
-- Run benchmarks of Cholesky branch https://github.com/stan-dev/stan/pull/2894. That means benchmarking:
-  - branch with `adapt metric=dense_e`
-  - release with `adapt metric=dense_e`
-  - develop with `adapt metric=dense_e`
-  - branch with `adapt metric=diag_e`
-  - release with `adapt metric=diag_e`
-  - develop with `adapt metric=diag_e`
-- The primary differences should be in the first two, but the rest of the benchmarks will give us a sense of how repeatable things are anyway
-- This will allow us to develop visualization for comparing two cmdstan branch configurations
+Running benchmarks for the unnecessary cholesky fix will allow us to set up develop our visualization tools in the case where we're trying to do direct A/B comparisons (new code vs. develop, new code vs. release, etc.)
 
 ## Time series comparisons
 
-- Lower priority, but just to have data to play with for plotting it would be good to benchmark a series of develop commits with `adapt metric=diag_e`
+- Lower priority, but just to have data to play with for plotting it would be good to benchmark a series of develop commits with `sample algorithm=hmc metric=diag_e`
   - This will let us develop visualization for benchmarks of a sequence of commits

@@ -337,15 +337,17 @@ summary {
 <ul>
 <li><a href="#automatic-metric-selection"><span class="toc-section-number">1</span> Automatic Metric Selection</a><ul>
 <li><a href="#relevant-performance-metrics"><span class="toc-section-number">1.1</span> Relevant performance metrics</a></li>
-<li><a href="#points-of-comparison"><span class="toc-section-number">1.2</span> Points of comparison</a></li>
+<li><a href="#benchmarking"><span class="toc-section-number">1.2</span> Benchmarking</a></li>
 </ul></li>
 <li><a href="#avoiding-unnecessary-cholesky-decompositions"><span class="toc-section-number">2</span> Avoiding unnecessary Cholesky decompositions</a><ul>
 <li><a href="#relevant-performance-metrics-1"><span class="toc-section-number">2.1</span> Relevant performance metrics</a></li>
-<li><a href="#points-of-comparison-1"><span class="toc-section-number">2.2</span> Points of comparison</a></li>
+<li><a href="#benchmarking-1"><span class="toc-section-number">2.2</span> Benchmarking</a></li>
 </ul></li>
 <li><a href="#informal-todo-list"><span class="toc-section-number">3</span> Informal todo list</a><ul>
-<li><a href="#ab-comparisons"><span class="toc-section-number">3.1</span> A/B comparisons</a></li>
-<li><a href="#time-series-comparisons"><span class="toc-section-number">3.2</span> Time series comparisons</a></li>
+<li><a href="#duplicate-benchmarks"><span class="toc-section-number">3.1</span> Duplicate benchmarks</a></li>
+<li><a href="#parallel-benchmarks"><span class="toc-section-number">3.2</span> Parallel benchmarks</a></li>
+<li><a href="#ab-comparisons"><span class="toc-section-number">3.3</span> A/B comparisons</a></li>
+<li><a href="#time-series-comparisons"><span class="toc-section-number">3.4</span> Time series comparisons</a></li>
 </ul></li>
 </ul>
 </div>
@@ -353,7 +355,7 @@ summary {
 <p>The goal of this document is to outline the benchmark needs of two pull requests in Stan. These pull requests need benchmarks to get them accepted.</p>
 <div id="automatic-metric-selection" class="section level1">
 <h1><span class="header-section-number">1</span> Automatic Metric Selection</h1>
-<p>Code is available in Stan pull <a href="https://github.com/stan-dev/stan/pull/2815">#2815</a>.</p>
+<p>Code is available in Stan pull <a href="https://github.com/stan-dev/stan/pull/2815">#2815</a>. This requires a custom version of cmdstan to run (<a href="https://github.com/stan-dev/cmdstan/pull/729">#729</a>).</p>
 <p>This pull requests introduces the new option, <code>adapt metric=auto_e</code>, that automatically switches between <code>adapt metric=diag_e</code> and <code>adapt metric=dense_e</code> during warmup (and then picks which is best for sampling).</p>
 <p>Stan currently uses the default <code>adapt metric=diag_e</code> and does nothing else. This has the effect of scaling the unconstrained coordinates by their marginal standard deviations, so that parameters on different scales can be rescaled to look similar to the internal MCMC algorithms in Stan (parameters on wildly different scales will NUTS problems).</p>
 <p>However, in some models there are correlations in the posterior parameters such that rescaling by the marginal standard deviations is not enough (it would be better to scale in a way to get rid of those correlations). In these models the dense metric is very helpful. Right now it is up to the Stan user to pick between the dense and diagonal metrics, and this pull request tries to do this automatically. An upside to this is that a different metric may be better at different points in warmup, indeed, it is possible that on a model where dense adaptation is best after a long warmup, it is still best to do the early warmup with a diagonal mass matrix, which automatic switching can handle.</p>
@@ -371,15 +373,19 @@ summary {
 </ul>
 <p>And the last thing we would want to check is the stability of adaptation, so we would look for variation of all of these metrics under many different simulations.</p>
 </div>
-<div id="points-of-comparison" class="section level2">
-<h2><span class="header-section-number">1.2</span> Points of comparison</h2>
-<p>The new option in this case is <code>adapt metric=auto_e</code>. The natural points of comparison are:</p>
+<div id="benchmarking" class="section level2">
+<h2><span class="header-section-number">1.2</span> Benchmarking</h2>
+<p>Benchmarking this requires both a cmdstan and a stan.</p>
+<p><code>stan-dev/cmdstan</code> branch <code>feature/issue-2814-warmup-auto</code> <code>stan-dev/stan</code> branch <code>feature/issue-2814-warmup-auto</code></p>
+<p>The new option in this case is <code>adapt metric=auto_e</code>. The points of comparison are:</p>
 <ul>
-<li>cmdstan release, <code>adapt metric=diag_e</code></li>
-<li>cmdstan release, <code>adapt metric=dense_e</code></li>
-<li>cmdstan develop + this pull, <code>adapt_metric=diag_e</code></li>
-<li>cmdstan develop + this pull, <code>adapt_metric=dense_e</code></li>
-<li>cmdstan develop + this pull, <code>adapt_metric=auto_e</code></li>
+<li>cmdstan release, <code>sample algorithm=hmc metric=diag_e</code></li>
+<li>cmdstan release, <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>cmdstan develop, <code>sample algorithm=hmc metric=diag_e</code></li>
+<li>cmdstan develop, <code>sample algorithm=hmc metric=dense_</code></li>
+<li>custom cmdstan/stan, <code>sample algorithm=hmc metric=diag_e</code></li>
+<li>custom cmdstan/stan, <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>custom cmdstan/stan, <code>sample algorithm=hmc metric=auto_e</code></li>
 </ul>
 <p>The release compares this pull directly with the release performance, and the develop comparisons compare all the different algorithm options directly.</p>
 </div>
@@ -397,36 +403,52 @@ summary {
 <li>Time per gradient</li>
 </ul>
 </div>
-<div id="points-of-comparison-1" class="section level2">
-<h2><span class="header-section-number">2.2</span> Points of comparison</h2>
+<div id="benchmarking-1" class="section level2">
+<h2><span class="header-section-number">2.2</span> Benchmarking</h2>
+<p>This can use the develop cmdstan, but it needs the custom Stan.</p>
+<p>Stan repo <code>https://github.com/stan-dev/stan.git</code>, branch <code>feature/issue-2881-dense-metric-decomposition</code></p>
 <ul>
-<li>cmdstan release, <code>adapt metric=dense_e</code></li>
-<li>cmdstan develop + this pull, <code>adapt metric=dense_e</code></li>
+<li>custom stan <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>cmdstan release with <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>cmdstan develop with <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>custom stan <code>sample algorithm=hmc metric=diag_e</code></li>
+<li>cmdstan release with <code>sample algorithm=hmc metric=diag_e</code></li>
+<li>cmdstan develop with <code>sample algorithm=hmc metric=diag_e</code></li>
 </ul>
+<p>The primary differences should be in the first two</p>
 </div>
 </div>
 <div id="informal-todo-list" class="section level1">
 <h1><span class="header-section-number">3</span> Informal todo list</h1>
-<div id="ab-comparisons" class="section level2">
-<h2><span class="header-section-number">3.1</span> A/B comparisons</h2>
+<div id="duplicate-benchmarks" class="section level2">
+<h2><span class="header-section-number">3.1</span> Duplicate benchmarks</h2>
+<p>In both of the above comparisons we want benchmarks on</p>
 <ul>
-<li>Run benchmarks of Cholesky branch <a href="https://github.com/stan-dev/stan/pull/2894" class="uri">https://github.com/stan-dev/stan/pull/2894</a>. That means benchmarking:
+<li>cmdstan release with <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>cmdstan release with <code>sample algorithm=hmc metric=diag_e</code></li>
+<li>cmdstan develop with <code>sample algorithm=hmc metric=dense_e</code></li>
+<li>cmdstan develop with <code>sample algorithm=hmc metric=diag_e</code></li>
+</ul>
+<p>It would be nice to only ever do these benchmarks a couple times (and not every time there is a comparison).</p>
+<p>To do this the benchmarks need to be:</p>
 <ul>
-<li>branch with <code>adapt metric=dense_e</code></li>
-<li>release with <code>adapt metric=dense_e</code></li>
-<li>develop with <code>adapt metric=dense_e</code></li>
-<li>branch with <code>adapt metric=diag_e</code></li>
-<li>release with <code>adapt metric=diag_e</code></li>
-<li>develop with <code>adapt metric=diag_e</code></li>
-</ul></li>
-<li>The primary differences should be in the first two, but the rest of the benchmarks will give us a sense of how repeatable things are anyway</li>
-<li>This will allow us to develop visualization for comparing two cmdstan branch configurations</li>
+<li><p>Reproducible. Presumably this is a requirement of all the benchmarks here, but it needs to be that benchmarks produced by a computer on one day basically match those benchmarks reproduced on a computer on a different day</p></li>
+<li><p>Translate-able across computers. Probably the only way this happens is if there is a common reference to compare to. If it’s possible to ensure that the ratio of performance on one branch and one computer to another branch and another computer is reproducible (which if the divisor or the divident are, seems like they should be), then we can make adjustments between the different computers we benchmark on.</p></li>
 </ul>
 </div>
+<div id="parallel-benchmarks" class="section level2">
+<h2><span class="header-section-number">3.2</span> Parallel benchmarks</h2>
+<p>It would be much more convenient I think to run chains in parallel when benchmarking. A lot of models are memory bound though, and so this means that running more than a couple chains will fill up memory and make stuff slow.</p>
+<p>Unless we do experiments to figure out how to make adjustments between the parallel chains and the single chains, we should probably do all the benchmarks with single chains.</p>
+</div>
+<div id="ab-comparisons" class="section level2">
+<h2><span class="header-section-number">3.3</span> A/B comparisons</h2>
+<p>Running benchmarks for the unnecessary cholesky fix will allow us to set up develop our visualization tools in the case where we’re trying to do direct A/B comparisons (new code vs. develop, new code vs. release, etc.)</p>
+</div>
 <div id="time-series-comparisons" class="section level2">
-<h2><span class="header-section-number">3.2</span> Time series comparisons</h2>
+<h2><span class="header-section-number">3.4</span> Time series comparisons</h2>
 <ul>
-<li>Lower priority, but just to have data to play with for plotting it would be good to benchmark a series of develop commits with <code>adapt metric=diag_e</code>
+<li>Lower priority, but just to have data to play with for plotting it would be good to benchmark a series of develop commits with <code>sample algorithm=hmc metric=diag_e</code>
 <ul>
 <li>This will let us develop visualization for benchmarks of a sequence of commits</li>
 </ul></li>
