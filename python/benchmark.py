@@ -53,12 +53,15 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
     )
     pdb = posteriordb.PosteriorDatabase(pdb_path)
 
+    print(f"PosteriorDB in {pdb_path}")
+
     manifest = {
         **manifest_info,
         "jobs": [],
     }
 
     N = len(pdb.posterior_names())
+    print(f"PosteriorDB N models: {N}")
     for n, name in enumerate(pdb.posterior_names(), 1):
         posterior = pdb.posterior(name)
         try:
