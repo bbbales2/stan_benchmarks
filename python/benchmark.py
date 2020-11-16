@@ -37,7 +37,7 @@ def setup_cmdstan(
         shlex.split(
             (
                 "Rscript R/build_cmdstan.R"
-                f"--cores={cores}"
+                f" --cores={cores}"
                 f" --cmdstan_branch={cmdstan_branch}"
                 f" --stan_branch={stan_branch}"
                 f" --math_branch={math_branch}"
