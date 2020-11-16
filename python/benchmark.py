@@ -23,17 +23,29 @@ def setup_cmdstan(
     job_dir=None,
 ):
     """Clone and build CmdStan. Compile model binaries."""
-    if not os.path.exists("tmp"):
-        os.mkdir("tmp")
-
-    if cmdstan_dir:
+    if cmdstan_dir is None:
         cmdstan_dir = tempfile.mkdtemp(prefix="cmdstan_")
 
     print(f"Building cmdstan in {cmdstan_dir}")
 
+    if job_dir is None:
+        job_dir = tempfile.mkdtemp(prefix="jobs_")
+
+    print(f"Building models in {job_dir}")
+
     build_cmd = subprocess.run(
         shlex.split(
-            f"Rscript R/build_cmdstan.R --cores={cores} --cmdstan_branch={cmdstan_branch} --stan_branch={stan_branch} --math_branch={math_branch} --cmdstan_url={cmdstan_url} --stan_url={stan_url} --math_url={math_url} {cmdstan_dir}"
+            (
+                "Rscript R/build_cmdstan.R"
+                f"--cores={cores}"
+                f" --cmdstan_branch={cmdstan_branch}"
+                f" --stan_branch={stan_branch}"
+                f" --math_branch={math_branch}"
+                f" --cmdstan_url={cmdstan_url}"
+                f" --stan_url={stan_url}"
+                f" --math_url={math_url}"
+                f" {cmdstan_dir}"
+            )
         )
     )
 
@@ -43,11 +55,6 @@ def setup_cmdstan(
         raise Exception("Cmdstan failed to build")
 
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
-
-    if job_dir is None:
-        job_dir = tempfile.mkdtemp(prefix="jobs_")
-
-    print(f"Building models in {job_dir}")
 
     # define POSTERIORDB env variable
     # OR
