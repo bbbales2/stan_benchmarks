@@ -43,7 +43,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
     pdb_path = os.environ.get(
         "POSTERIORDB",
         os.path.join(
-            os.path.basename(posteriordb.__file__),
+            os.path.dirname(posteriordb.__file__),
             "..",
             "..",
             "..",
@@ -97,7 +97,7 @@ def setup_cmdstan(
     print(f"Building cmdstan in {cmdstan_dir}")
 
     build_cmdstan = os.path.join(
-        os.path.basename(__file__), "..", "R", "build_cmdstan.R"
+        os.path.dirname(__file__), "..", "R", "build_cmdstan.R"
     )
     build_cmd = subprocess.run(
         shlex.split(
