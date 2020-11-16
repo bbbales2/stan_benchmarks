@@ -58,9 +58,11 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
         "jobs": [],
     }
 
-    for name in pdb.posterior_names():
+    N = len(pdb.posterior_names())
+    for n, name in enumerate(pdb.posterior_names(), 1):
         posterior = pdb.posterior(name)
         try:
+            print(f"Building model ({n}/{N}): {name}")
             model_file, data_file = setup_model(
                 cmdstan_dir=cmdstan_dir,
                 job_dir=job_dir,
