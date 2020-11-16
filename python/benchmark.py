@@ -111,7 +111,7 @@ def setup_cmdstan(
     ) as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
 
-    return cmdstan_dir, job_dir
+    return cmdstan_dir, job_dir, manifest
 
 
 if __name__ == "__main__":
