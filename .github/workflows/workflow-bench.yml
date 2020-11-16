@@ -10,7 +10,7 @@ on:
 jobs:
   benchmarks:
     name: Benchmarks
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config:
