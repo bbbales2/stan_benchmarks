@@ -31,4 +31,4 @@ git2r::clone(url = args$math_url,
              branch = args$math_branch,
              local_path = file.path(args$dir, "stan", "lib", "stan_math"))
 
-cmdstanr::rebuild_cmdstan(dir = args$dir, cores = args$cores)
+cmdstanr::install_cmdstan(dir = args$dir, cores = args$cores)
