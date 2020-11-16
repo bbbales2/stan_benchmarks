@@ -22,6 +22,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Ubuntu dependencies
+        run: sudo apt-get install libcurl4-openssl-dev
+
       - name: Set up Python ${{ matrix.config.python-version }}
         uses: actions/setup-python@v1
         with:
@@ -32,13 +35,19 @@ jobs:
         with:
           r-version: ${{ matrix.config.r }}
 
-      - name: Install python dependencies
+      - name: Install dependencies (python)
         run: |
           pip install --upgrade pip wheel
           pip install cmdstanpy
 
           git clone https://github.com/MansMeg/posteriordb
           pip install -e posteriordb/python
+
+      - name: Install dependencies (R)
+        run: |
+          install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+          install.packages("git2r")
+        shell: Rscript {0}
 
       - name: Build models (defaults)
         run: |
