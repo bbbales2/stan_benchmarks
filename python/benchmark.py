@@ -96,10 +96,13 @@ def setup_cmdstan(
 
     print(f"Building cmdstan in {cmdstan_dir}")
 
+    build_cmdstan = os.path.join(
+        os.path.basename(__file__), "..", "R", "build_cmdstan.R"
+    )
     build_cmd = subprocess.run(
         shlex.split(
             (
-                "Rscript R/build_cmdstan.R"
+                f"Rscript {build_cmdstan}"
                 f" --cores={cores}"
                 f" --cmdstan_branch={cmdstan_branch}"
                 f" --stan_branch={stan_branch}"
