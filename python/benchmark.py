@@ -8,100 +8,134 @@ import shlex
 import json
 import cmdstanpy
 
-parser = argparse.ArgumentParser()
 
-parser.add_argument("--cores", type = int, default = 1, help = "Number of cores to use")
-parser.add_argument("--cmdstan_branch", default = "develop", help = "cmdstan repo branch")
-parser.add_argument("--stan_branch", default = "develop", help = "stan repo branch")
-parser.add_argument("--math_branch", default = "develop", help = "math repo branch")
-parser.add_argument("--cmdstan_url", default = "http://github.com/stan-dev/cmdstan", help = "cmdstan repo url")
-parser.add_argument("--stan_url", default = "http://github.com/stan-dev/stan", help = "stan repo url")
-parser.add_argument("--math_url", default = "http://github.com/stan-dev/math", help = "math repo url")
+def setup_cmdstan(
+    *,
+    cores,
+    cmdstan_branch,
+    stan_branch,
+    math_branch,
+    cmdstan_url,
+    stan_url,
+    math_url,
+    cmdstan_dir=None,
+    job_dir=None,
+):
+    """Clone and build CmdStan. Compile model binaries."""
+    if not os.path.exists("tmp"):
+        os.mkdir("tmp")
 
-args = parser.parse_args()
+    if cmdstan_dir:
+        cmdstan_dir = tempfile.mkdtemp(prefix="cmdstan_")
 
-# Clone and build cmdstan
-if not os.path.exists("tmp"):
-    os.mkdir("tmp")
+    print(f"Building cmdstan in {cmdstan_dir}")
 
-cmdstan_dir = tempfile.mkdtemp(dir = "tmp")
+    build_cmd = subprocess.run(
+        shlex.split(
+            f"Rscript R/build_cmdstan.R --cores={cores} --cmdstan_branch={cmdstan_branch} --stan_branch={stan_branch} --math_branch={math_branch} --cmdstan_url={cmdstan_url} --stan_url={stan_url} --math_url={math_url} {cmdstan_dir}"
+        )
+    )
 
-print("Building cmdstan in ", cmdstan_dir)
+    if build_cmd.returncode == 0:
+        print("Cmdstan build successfully")
+    else:
+        raise Exception("Cmdstan failed to build")
 
-build_cmd = subprocess.run(shlex.split("Rscript R/build_cmdstan.R --cores={cores} --cmdstan_branch={cmdstan_branch} --stan_branch={stan_branch} --math_branch={math_branch} --cmdstan_url={cmdstan_url} --stan_url={stan_url} --math_url={math_url} {dir}"
-                                       .format(dir = cmdstan_dir,
-                                               cores = args.cores,
-                                               cmdstan_branch = args.cmdstan_branch,
-                                               stan_branch = args.stan_branch,
-                                               math_branch = args.math_branch,
-                                               cmdstan_url = args.cmdstan_url,
-                                               stan_url = args.stan_url,
-                                               math_url = args.math_url)))
+    cmdstanpy.set_cmdstan_path(cmdstan_dir)
 
-if build_cmd.returncode == 0:
-    print("Cmdstan build successfully")
-else:
-    raise Exception("Cmdstan failed to build")
+    if job_dir is None:
+        job_dir = tempfile.mkdtemp(prefix="jobs_")
 
-cmdstanpy.set_cmdstan_path(cmdstan_dir)
+    print(f"Building models in {job_dir}")
 
-# Build job directory with model binaries
-if not os.path.exists("jobs"):
-    os.mkdir("jobs")
+    # define POSTERIORDB env variable
+    # OR
+    # hack: assume that posteriordb is installed from GH clone inplace
+    # pip install -e .
+    pdb_path = os.environ.get(
+        "POSTERIORDB",
+        os.path.join(
+            os.path.basename(posteriordb.__file__),
+            "..",
+            "..",
+            "..",
+            "posteriordb",
+            "posterior_database",
+        ),
+    )
+    pdb = posteriordb.PosteriorDatabase(pdb_path)
 
-job_dir = tempfile.mkdtemp(dir = "jobs")
+    manifest = {
+        "cmdstan_branch": cmdstan_branch,
+        "stan_branch": stan_branch,
+        "math_branch": math_branch,
+        "cmdstan_url": cmdstan_url,
+        "stan_url": stan_url,
+        "math_url": math_url,
+        "jobs": [],
+    }
 
-pdb_path = os.path.join(os.getcwd(), "posteriordb", "posterior_database")
-pdb = posteriordb.PosteriorDatabase(pdb_path)
+    for name in pdb.posterior_names():
+        posterior = pdb.posterior(name)
 
-print("Building models in ", job_dir)
+        with tempfile.NamedTemporaryFile(
+            "w", prefix=f"{name}_", suffix=".stan", dir=job_dir, delete=False
+        ) as f:
+            print(posterior.model.code("stan"), file=f)
+            model_file = f.name
 
-manifest = {
-    "cmdstan_branch" : args.cmdstan_branch,
-    "stan_branch" : args.stan_branch,
-    "math_branch" : args.math_branch,
-    "cmdstan_url" : args.cmdstan_url,
-    "stan_url" : args.stan_url,
-    "math_url" : args.math_url,
-    "jobs" : []
-}
+        with tempfile.NamedTemporaryFile(
+            "w", prefix=f"{name}_", suffix=".json", dir=job_dir, delete=False
+        ) as f:
+            json.dump(posterior.data.values(), f, indent=2, sort_keys=True)
+            data_file = f.name
 
-for name in pdb.posterior_names():
-    post = pdb.posterior(name)
+        try:
+            cmdstanpy.CmdStanModel(stan_file=model_file)
+        except Exception as e:
+            print(f"model {model_file}, data {data_file} failed:\n{e}")
+            continue
 
-    f = tempfile.NamedTemporaryFile("w",
-                                    prefix = name,
-                                    suffix = ".stan",
-                                    dir = job_dir,
-                                    delete = False)
-    f.write(post.model.code("stan"))
-    model_file = f.name
-    f.close()
+        manifest["jobs"].append({model_file: model_file, data_file: data_file})
 
-    f = tempfile.NamedTemporaryFile("w",
-                                    prefix = name,
-                                    suffix = ".dat",
-                                    dir = job_dir,
-                                    delete = False)
-    json.dump(post.data.values(), f, indent = 2, sort_keys = True)
-    data_file = f.name
-    f.close()
+    with tempfile.NamedTemporaryFile(
+        "w", prefix="manifest_", suffix=".json", dir=job_dir, delete=False
+    ) as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
 
-    try:
-        cmdstanpy.CmdStanModel(stan_file = model_file)
-    except Exception as e:
-        print(e)
+    return cmdstan_dir, job_dir
 
-    manifest["jobs"].append({ model_file : model_file,
-                              data_file : data_file })
 
-mf = tempfile.NamedTemporaryFile("w",
-                                 prefix = "manifest_",
-                                 suffix = ".json",
-                                 dir = job_dir,
-                                 delete = False)
-json.dump(manifest, mf, indent = 2, sort_keys = True)
-mf.close()
+if __name__ == "__main__":
+    import argparse
 
-print("cmdstan dir: ", cmdstan_dir)
-print("job dir: ", job_dir)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        "--cores",
+        type=int,
+        default=1,
+        help="Number of cores to use (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--cmdstan_branch", default="develop", help="cmdstan repo branch"
+    )
+    parser.add_argument("--stan_branch", default="develop", help="stan repo branch")
+    parser.add_argument("--math_branch", default="develop", help="math repo branch")
+    parser.add_argument(
+        "--cmdstan_url",
+        default="http://github.com/stan-dev/cmdstan",
+        help="cmdstan repo url",
+    )
+    parser.add_argument(
+        "--stan_url", default="http://github.com/stan-dev/stan", help="stan repo url"
+    )
+    parser.add_argument(
+        "--math_url", default="http://github.com/stan-dev/math", help="math repo url"
+    )
+
+    args = parser.parse_args()
+
+    # setup_cmdstan(**vars(args))
