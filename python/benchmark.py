@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-import posteriordb
-import os
 import argparse
-import tempfile
-import subprocess
-import shlex
 import json
+import os
+import shlex
+import subprocess
+import tempfile
+
 import cmdstanpy
+import posteriordb
 
 
 def setup_cmdstan(
