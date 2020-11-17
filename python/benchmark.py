@@ -179,7 +179,7 @@ def main_setup(
     return cmdstan_dir, job_dir, manifest
 
 
-def sample(model_file, data_file, args=None):
+def sample(model_file, data_file, dir, args=None):
     """Run sample."""
     if args is None:
         args = {}
@@ -187,15 +187,22 @@ def sample(model_file, data_file, args=None):
         stan_file=model_file, exe_file=os.path.splitext(model_file)[0]
     )
     fit = model_object.sample(data=data, *args)
-    return fit
+    fit.save_csvfiles(dir=dir)
+    return fit.runset.csv_files
 
 
-def main_sample(manifest, args=None):
+def main_sample_sample(manifest, args=None, nrounds=1):
     """Run fits for models."""
     fits = []
+    fit_dir = tempfile.mkdtemp(prefix="fit_")
     for i, jobs in enumerate(manifest["jobs"], 1):
-        fit = sample(**jobs, args=args)
-        fits.append(fit)
+        job_fits = []
+        fit_dir_i = os.path.join(fit_dir, str(i))
+        os.makedirs(fit_dir_i)
+        for _ in range(nrounds):
+            fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
+            job_fits.extend(fit_paths)
+        fits.append(job_fits)
     return fits
 
 
@@ -230,6 +237,9 @@ if __name__ == "__main__":
     )
 
     # Sample args
+    parser.add_argument(
+        "--nrounds", default=1, help="number of times sampling is done (sample)"
+    )
     parser.add_argument("--chains", default=1, help="number of chains (sample)")
     parser.add_argument(
         "--parallel_chains", default=1, help="number of parallel chains (sample)"
@@ -280,7 +290,8 @@ if __name__ == "__main__":
         for key, value in vars(args).items()
         if key not in setup_args_defaults
     }
+    nrounds = sample_args.pop("nrounds", 1)
 
     cmdstan_dir, job_dir, manifest = main_setup(**setup_args)
 
-    fits = main_sample(manifest=manifest, args=sample_args)
+    fits = main_sample(manifest=manifest, args=sample_args, nrounds=nrounds)
