@@ -117,9 +117,7 @@ def setup_cmdstan(
     )
     print(cmd)
     build_cmd = subprocess.run(
-        shlex.split(
-            cmd
-        ),
+        shlex.split(cmd),
         capture_output=True,
     )
 
