@@ -129,7 +129,7 @@ def setup_cmdstan(
         raise Exception("Cmdstan failed to build")
 
     # get the cmdstan subfolder
-    cmdstan_dir = os.listdir(cmdstan_dir)[0]
+    cmdstan_dir = os.path.join(cmdstan_dir, os.listdir(cmdstan_dir)[0])
 
     return cmdstan_dir
 
