@@ -1,0 +1,55 @@
+name: Benchmarks
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+
+jobs:
+  benchmarks:
+    name: Benchmarks
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+          - {os: ubuntu-latest, r: 'release', python-version: 3.9}
+      fail-fast: false
+    steps:
+      - name: Checkout github
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install Ubuntu dependencies
+        run: sudo apt-get install libcurl4-openssl-dev
+
+      - name: Set up Python ${{ matrix.config.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.config.python-version }}
+
+      - name: Set up R ${{ matrix.config.r }}
+        uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: ${{ matrix.config.r }}
+
+      - name: Install dependencies (python)
+        run: |
+          pip install --upgrade pip wheel
+          pip install cmdstanpy
+
+          git clone https://github.com/MansMeg/posteriordb
+          pip install -e posteriordb/python
+
+      - name: Install dependencies (R)
+        run: |
+          install.packages("argparse")
+          install.packages("git2r")
+          install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+        shell: Rscript {0}
+
+      - name: Build models (defaults)
+        run: |
+          python python/benchmark.py
