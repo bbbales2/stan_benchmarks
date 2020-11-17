@@ -74,7 +74,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
             )
             manifest["jobs"].append({"model_file": model_file, "data_file": data_file})
         except:
-            print(f"\nmodel {model_file}, data {data_file} failed:\n{e}")
+            print(f"\nmodel {name} failed:\n{e}")
 
     with tempfile.NamedTemporaryFile(
         "w", prefix="manifest_", suffix=".json", dir=job_dir, delete=False
