@@ -184,7 +184,7 @@ if __name__ == "__main__":
         "--cores",
         type=int,
         default=1,
-        help="Number of cores to use (default: %(default)s)",
+        help="Number of cores to use",
     )
     parser.add_argument(
         "--cmdstan_branch", default="develop", help="cmdstan repo branch"
