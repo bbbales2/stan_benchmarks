@@ -31,8 +31,9 @@ def setup_model(*, cmdstan_dir, job_dir, name, model, data):
         json.dump(data, f, indent=2, sort_keys=True)
         data_file = f.name
 
-    cmdstanpy.CmdStanModel(stan_file=model_file)
-    return model_file, data_file
+    model_object = cmdstanpy.CmdStanModel(stan_file=model_file)
+    exe_file = model_object.exe_file
+    return model_file, data_file, exe_file
 
 
 def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
@@ -48,13 +49,13 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
     # pip install -e .
     pdb_path = os.environ.get(
         "POSTERIORDB",
-        os.path.join(
+        os.path.normpath(os.path.join(
             os.path.dirname(posteriordb.__file__),
             "..",
             "..",
             "..",
             "posterior_database",
-        ),
+        )),
     )
     pdb = posteriordb.PosteriorDatabase(pdb_path)
 
@@ -62,7 +63,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
 
     manifest = {
         **manifest_info,
-        "jobs": [],
+        "jobs": {},
     }
 
     N = len(pdb.posterior_names())
@@ -71,14 +72,14 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
         posterior = pdb.posterior(name)
         try:
             print(f"Building model ({n}/{N}): {name}", flush=True)
-            model_file, data_file = setup_model(
+            model_file, data_file, exe_file = setup_model(
                 cmdstan_dir=cmdstan_dir,
                 job_dir=job_dir,
                 name=name,
                 model=posterior.model.code("stan"),
                 data=posterior.data.values(),
             )
-            manifest["jobs"].append({"model_file": model_file, "data_file": data_file})
+            manifest["jobs"][name] = {"model_file": model_file, "data_file": data_file, "exe_file": exe_file}
         except Exception as e:
             print(f"\nmodel {name} failed:\n{e}", flush=True)
 
@@ -107,9 +108,9 @@ def setup_cmdstan(
 
     print(f"Building cmdstan in {cmdstan_dir}")
 
-    build_cmdstan = os.path.join(
+    build_cmdstan = os.path.normpath(os.path.join(
         os.path.dirname(__file__), "..", "R", "build_cmdstan.R"
-    )
+    ))
     cmd = (
         f"Rscript {build_cmdstan}"
         f" --cores={cores}"
@@ -179,34 +180,33 @@ def main_setup(
     return cmdstan_dir, job_dir, manifest
 
 
-def sample(model_file, data_file, dir, args=None):
+def sample(model_file, data_file, dir, name=None, exe_file=None, args=None):
     """Run sample."""
     if args is None:
         args = {}
-    model_object = CmdStanModel(
-        stan_file=model_file, exe_file=os.path.splitext(model_file)[0]
+    model_object = cmdstanpy.CmdStanModel(
+        model_name=name, stan_file=model_file, exe_file=exe_file,
     )
     fit = model_object.sample(data=data, **args)
     fit.save_csvfiles(dir=dir)
-    # return a copy
-    return fit.runset.csv_files[:]
+    return fit.runset.csv_files
 
 
 def main_sample(manifest, args=None, nrounds=1):
     """Run fits for models."""
-    fits = []
+    fits = {}
     fit_dir = tempfile.mkdtemp(prefix="fit_")
-    for i, jobs in enumerate(manifest["jobs"], 1):
+    for i, (name, jobs) in enumerate(manifest["jobs"].items(), 1):
         job_fits = []
-        fit_dir_i = os.path.join(fit_dir, str(i))
+        fit_dir_i = os.path.join(fit_dir, name, str(i))
         os.makedirs(fit_dir_i)
         for _ in range(nrounds):
             try:
-                fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
+                fit_paths = sample(**jobs, name=name, dir=fit_dir_i, args=args)
                 job_fits.extend(fit_paths)
             except Exception as e:
-                print(f"Sampling failed: {jobs['model_file']}:\n{e}", flush=True)
-        fits.append(job_fits)
+                print(f"Sampling failed: {name}:\n{e}", flush=True)
+        fits[name] = job_fits
     return fits
 
 
