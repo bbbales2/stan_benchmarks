@@ -10,7 +10,7 @@ import cmdstanpy
 import posteriordb
 
 
-def setup_model(*, cmdstan_dir, job_dir, model, data):
+def setup_model(*, cmdstan_dir, job_dir, name, model, data):
     """Compile Stan model."""
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
 
@@ -69,6 +69,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
             model_file, data_file = setup_model(
                 cmdstan_dir=cmdstan_dir,
                 job_dir=job_dir,
+                name=name,
                 model=posterior.model.code("stan"),
                 data=posterior.data.values(),
             )
