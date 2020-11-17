@@ -192,7 +192,7 @@ def sample(model_file, data_file, dir, args=None):
     return fit.runset.csv_files[:]
 
 
-def main_sample_sample(manifest, args=None, nrounds=1):
+def main_sample(manifest, args=None, nrounds=1):
     """Run fits for models."""
     fits = []
     fit_dir = tempfile.mkdtemp(prefix="fit_")
