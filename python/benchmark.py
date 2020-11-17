@@ -12,6 +12,7 @@ import posteriordb
 
 logging.basicConfig(level=logging.WARNING)
 
+
 def setup_model(*, cmdstan_dir, job_dir, name, model, data):
     """Compile Stan model."""
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
@@ -139,7 +140,7 @@ def setup_cmdstan(
     return cmdstan_dir
 
 
-def main(
+def main_setup(
     *,
     cores,
     cmdstan_branch,
@@ -178,6 +179,26 @@ def main(
     return cmdstan_dir, job_dir, manifest
 
 
+def sample(model_file, data_file, args=None):
+    """Run sample."""
+    if args is None:
+        args = {}
+    model_object = CmdStanModel(
+        stan_file=model_file, exe_file=os.path.splitext(model_file)[0]
+    )
+    fit = model_object.sample(data=data, *args)
+    return fit
+
+
+def main_sample(manifest, args=None):
+    """Run fits for models."""
+    fits = []
+    for i, jobs in enumerate(manifest["jobs"], 1):
+        fit = sample(**jobs, args=args)
+        fits.append(fit)
+    return fits
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -208,6 +229,58 @@ if __name__ == "__main__":
         "--math_url", default="http://github.com/stan-dev/math", help="math repo url"
     )
 
+    # Sample args
+    parser.add_argument("--chains", default=1, help="number of chains (sample)")
+    parser.add_argument(
+        "--parallel_chains", default=1, help="number of parallel chains (sample)"
+    )
+    parser.add_argument(
+        "--threads_per_chain", default=1, help="threads per chain (sample)"
+    )
+    parser.add_argument("--seed", default=None, help="Seed (sample)")
+    parser.add_argument(
+        "--iter_warmup", default=None, help="Number of warmup samples (sample)"
+    )
+    parser.add_argument(
+        "--iter_sampling", default=None, help="Number of samples (sample)"
+    )
+    parser.add_argument("--thin", default=None, help="Thin (sample)")
+    parser.add_argument("--max_treedepth", default=None, help="Max treedepth (sample)")
+    parser.add_argument("--metric", default=None, help="Metric (sample)")
+    parser.add_argument("--step_size", default=None, help="Step size (sample)")
+    parser.add_argument("--adapt_engaged", default=True, help="Adapt engaged (sample)")
+    parser.add_argument("--adapt_delta", default=None, help="Adapt delta (sample)")
+    parser.add_argument(
+        "--adapt_init_phase", default=None, help="Adapt init phase (sample)"
+    )
+    parser.add_argument(
+        "--adapt_metric_window", default=None, help="Adapt metric window (sample)"
+    )
+    parser.add_argument(
+        "--adapt_step_size", default=None, help="Adapt step size (sample)"
+    )
+    parser.add_argument("--fixed_param", default=False, help="Fixed param (sample)")
+
     args = parser.parse_args()
 
-    main(**vars(args))
+    setup_args_defaults = {
+        "cores",
+        "cmdstan_branch",
+        "stan_branch",
+        "math_branch",
+        "cmdstan_url",
+        "stan_url",
+        "math_url",
+    }
+    setup_args = {
+        key: value for key, value in vars(args).items() if key in setup_args_defaults
+    }
+    sample_args = {
+        key: value
+        for key, value in vars(args).items()
+        if key not in setup_args_defaults
+    }
+
+    cmdstan_dir, job_dir, manifest = main_setup(**setup_args)
+
+    fits = main_sample(manifest=manifest, args=sample_args)
