@@ -201,8 +201,11 @@ def main_sample_sample(manifest, args=None, nrounds=1):
         fit_dir_i = os.path.join(fit_dir, str(i))
         os.makedirs(fit_dir_i)
         for _ in range(nrounds):
-            fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
-            job_fits.extend(fit_paths)
+            try:
+                fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
+                job_fits.extend(fit_paths)
+            except Exception as e:
+                print("Sampling failed: {jobs['model_file']}", flush=True)
         fits.append(job_fits)
     return fits
 
