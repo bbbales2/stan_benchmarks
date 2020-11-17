@@ -188,7 +188,8 @@ def sample(model_file, data_file, dir, args=None):
     )
     fit = model_object.sample(data=data, *args)
     fit.save_csvfiles(dir=dir)
-    return fit.runset.csv_files
+    # return a copy
+    return fit.runset.csv_files[:]
 
 
 def main_sample_sample(manifest, args=None, nrounds=1):
