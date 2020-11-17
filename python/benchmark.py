@@ -47,7 +47,6 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
             "..",
             "..",
             "..",
-            "posteriordb",
             "posterior_database",
         ),
     )
@@ -117,12 +116,15 @@ def setup_cmdstan(
                 f" --math_url={math_url}"
                 f" {cmdstan_dir}"
             )
-        )
+        ),
+        capture_output=True,
     )
 
     if build_cmd.returncode == 0:
         print("Cmdstan build successfully")
     else:
+        print(build_cmd.stdout)
+        print(build_cmd.stderr)
         raise Exception("Cmdstan failed to build")
 
     return cmdstan_dir
