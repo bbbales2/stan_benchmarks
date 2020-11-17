@@ -180,12 +180,12 @@ def main_setup(
     return cmdstan_dir, job_dir, manifest
 
 
-def sample(model_file, data_file, dir, name=None, exe_file=None, args=None):
+def sample(model_file, data_file, dir, exe_file=None, args=None):
     """Run sample."""
     if args is None:
         args = {}
     model_object = cmdstanpy.CmdStanModel(
-        model_name=name, stan_file=model_file, exe_file=exe_file,
+        stan_file=model_file, exe_file=exe_file,
     )
     fit = model_object.sample(data=data, **args)
     fit.save_csvfiles(dir=dir)
@@ -202,7 +202,7 @@ def main_sample(manifest, args=None, nrounds=1):
         os.makedirs(fit_dir_i)
         for _ in range(nrounds):
             try:
-                fit_paths = sample(**jobs, name=name, dir=fit_dir_i, args=args)
+                fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
                 job_fits.extend(fit_paths)
             except Exception as e:
                 print(f"Sampling failed: {name}:\n{e}", flush=True)
