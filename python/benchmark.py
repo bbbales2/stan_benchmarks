@@ -69,7 +69,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
     for n, name in enumerate(pdb.posterior_names(), 1):
         posterior = pdb.posterior(name)
         try:
-            print(f"Building model ({n}/{N}): {name}")
+            print(f"Building model ({n}/{N}): {name}", flush=True)
             model_file, data_file = setup_model(
                 cmdstan_dir=cmdstan_dir,
                 job_dir=job_dir,
@@ -79,7 +79,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
             )
             manifest["jobs"].append({"model_file": model_file, "data_file": data_file})
         except Exception as e:
-            print(f"\nmodel {name} failed:\n{e}")
+            print(f"\nmodel {name} failed:\n{e}", flush=True)
 
     with tempfile.NamedTemporaryFile(
         "w", prefix="manifest_", suffix=".json", dir=job_dir, delete=False
@@ -127,10 +127,10 @@ def setup_cmdstan(
     )
 
     if build_cmd.returncode == 0:
-        print("Cmdstan build successfully")
+        print("Cmdstan build successfully", flush=True)
     else:
         print(build_cmd.stdout)
-        print(build_cmd.stderr)
+        print(build_cmd.stderr, flush=True)
         raise Exception("Cmdstan failed to build")
 
     # get the cmdstan subfolder
