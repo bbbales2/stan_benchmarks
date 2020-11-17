@@ -187,7 +187,7 @@ def sample(model_file, data_file, dir, exe_file=None, args=None):
     model_object = cmdstanpy.CmdStanModel(
         stan_file=model_file, exe_file=exe_file,
     )
-    fit = model_object.sample(data=data, **args)
+    fit = model_object.sample(data=data_file, **args)
     fit.save_csvfiles(dir=dir)
     return fit.runset.csv_files
 
