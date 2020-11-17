@@ -130,6 +130,9 @@ def setup_cmdstan(
         print(build_cmd.stderr)
         raise Exception("Cmdstan failed to build")
 
+    # get the cmdstan subfolder
+    cmdstan_dir = os.listdir(cmdstan_dir)[0]
+
     return cmdstan_dir
 
 
