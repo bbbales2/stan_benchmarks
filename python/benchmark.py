@@ -186,7 +186,7 @@ def sample(model_file, data_file, dir, args=None):
     model_object = CmdStanModel(
         stan_file=model_file, exe_file=os.path.splitext(model_file)[0]
     )
-    fit = model_object.sample(data=data, *args)
+    fit = model_object.sample(data=data, **args)
     fit.save_csvfiles(dir=dir)
     # return a copy
     return fit.runset.csv_files[:]
@@ -205,7 +205,7 @@ def main_sample(manifest, args=None, nrounds=1):
                 fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
                 job_fits.extend(fit_paths)
             except Exception as e:
-                print("Sampling failed: {jobs['model_file']}", flush=True)
+                print(f"Sampling failed: {jobs['model_file']}:\n{e}", flush=True)
         fits.append(job_fits)
     return fits
 
