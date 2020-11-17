@@ -16,6 +16,8 @@ def setup_model(*, cmdstan_dir, job_dir, name, model, data):
     """Compile Stan model."""
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
 
+    model = model.replace("<-", "=")
+
     with tempfile.NamedTemporaryFile(
         "w", prefix=f"{name}_", suffix=".stan", dir=job_dir, delete=False
     ) as f:
