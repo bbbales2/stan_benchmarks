@@ -27,6 +27,7 @@ def setup_model(cmdstan_dir, job_dir, model, data):
         data_file = f.name
 
     cmdstanpy.CmdStanModel(stan_file=model_file)
+    return model_file, data_file
 
 
 def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
