@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import logging
 import os
 import shlex
 import subprocess
@@ -9,6 +10,7 @@ import tempfile
 import cmdstanpy
 import posteriordb
 
+logging.basicConfig(level=logging.WARNING)
 
 def setup_model(*, cmdstan_dir, job_dir, name, model, data):
     """Compile Stan model."""
