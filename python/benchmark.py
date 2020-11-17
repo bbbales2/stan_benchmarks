@@ -10,7 +10,7 @@ import cmdstanpy
 import posteriordb
 
 
-def setup_model(cmdstan_dir, job_dir, model, data):
+def setup_model(*, cmdstan_dir, job_dir, model, data):
     """Compile Stan model."""
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
 
@@ -73,7 +73,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
                 data=posterior.data.values(),
             )
             manifest["jobs"].append({"model_file": model_file, "data_file": data_file})
-        except:
+        except Exception as e:
             print(f"\nmodel {name} failed:\n{e}")
 
     with tempfile.NamedTemporaryFile(
@@ -104,19 +104,21 @@ def setup_cmdstan(
     build_cmdstan = os.path.join(
         os.path.dirname(__file__), "..", "R", "build_cmdstan.R"
     )
+    cmd = (
+        f"Rscript {build_cmdstan}"
+        f" --cores={cores}"
+        f" --cmdstan_branch={cmdstan_branch}"
+        f" --stan_branch={stan_branch}"
+        f" --math_branch={math_branch}"
+        f" --cmdstan_url={cmdstan_url}"
+        f" --stan_url={stan_url}"
+        f" --math_url={math_url}"
+        f" {cmdstan_dir}"
+    )
+    print(cmd)
     build_cmd = subprocess.run(
         shlex.split(
-            (
-                f"Rscript {build_cmdstan}"
-                f" --cores={cores}"
-                f" --cmdstan_branch={cmdstan_branch}"
-                f" --stan_branch={stan_branch}"
-                f" --math_branch={math_branch}"
-                f" --cmdstan_url={cmdstan_url}"
-                f" --stan_url={stan_url}"
-                f" --math_url={math_url}"
-                f" {cmdstan_dir}"
-            )
+            cmd
         ),
         capture_output=True,
     )
