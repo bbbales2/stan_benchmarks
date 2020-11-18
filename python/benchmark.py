@@ -36,10 +36,10 @@ def setup_model(*, cmdstan_dir, job_dir, name, model, data):
     return model_file, data_file, exe_file
 
 
-def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
+def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, job_dir = None):
     """Compile posteriordb binaries."""
     if job_dir is None:
-        job_dir = tempfile.mkdtemp(prefix="jobs_")
+        job_dir = tempfile.mkdtemp(prefix = "jobs_", dir = dir)
 
     print(f"Building models in {job_dir}")
 
@@ -62,7 +62,6 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
     print(f"PosteriorDB in {pdb_path}")
 
     manifest = {
-        **manifest_info,
         "jobs": {},
     }
 
@@ -93,6 +92,7 @@ def setup_posteriordb_models(*, cmdstan_dir, manifest_info, job_dir=None):
 
 def setup_cmdstan(
     *,
+    dir,
     cores,
     cmdstan_branch,
     stan_branch,
@@ -104,7 +104,7 @@ def setup_cmdstan(
 ):
     """Clone and build CmdStan. Compile model binaries."""
     if cmdstan_dir is None:
-        cmdstan_dir = tempfile.mkdtemp(prefix="cmdstan_")
+        cmdstan_dir = tempfile.mkdtemp(prefix="cmdstan_", dir = dir)
 
     print(f"Building cmdstan in {cmdstan_dir}")
 
@@ -122,6 +122,16 @@ def setup_cmdstan(
         f" --math_url={math_url}"
         f" {cmdstan_dir}"
     )
+
+    manifest = {
+        "cmdstan_branch": cmdstan_branch,
+        "stan_branch": stan_branch,
+        "math_branch": math_branch,
+        "cmdstan_url": cmdstan_url,
+        "stan_branch": stan_url,
+        "math_branch": math_url
+    }
+
     print(cmd)
     build_cmd = subprocess.run(
         shlex.split(cmd),
@@ -135,15 +145,18 @@ def setup_cmdstan(
         print(build_cmd.stderr, flush=True)
         raise Exception("Cmdstan failed to build")
 
-    # get the cmdstan subfolder
-    cmdstan_dir = os.path.join(cmdstan_dir, os.listdir(cmdstan_dir)[0])
+    with tempfile.NamedTemporaryFile(
+        "w", prefix="manifest_", suffix=".json", dir=cmdstan_dir, delete=False
+    ) as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
 
     return cmdstan_dir
 
 
 def main_setup(
     *,
-        posteriors,
+    dir,
+    posteriors,
     cores,
     cmdstan_branch,
     stan_branch,
@@ -156,6 +169,7 @@ def main_setup(
 ):
 
     cmdstan_dir = setup_cmdstan(
+        dir = dir,
         cores=cores,
         cmdstan_branch=cmdstan_branch,
         stan_branch=stan_branch,
@@ -165,21 +179,21 @@ def main_setup(
         math_url=math_url,
     )
 
-    manifest_info = {
-        "cmdstan_branch": cmdstan_branch,
-        "stan_branch": stan_branch,
-        "math_branch": math_branch,
-        "cmdstan_url": cmdstan_url,
-        "stan_url": stan_url,
-        "math_url": math_url,
-        "configurations": configurations
-    }
-
-    job_dir, manifest = setup_posteriordb_models(
-        posteriors = posteriors, cmdstan_dir=cmdstan_dir, manifest_info=manifest_info
+    job_dir = setup_posteriordb_models(
+        posteriors = posteriors,
+        dir = dir,
+        cmdstan_dir = cmdstan_dir
     )
 
-    return cmdstan_dir, job_dir, manifest
+    manifest = {
+        "cmdstan_dir": cmdstan_dir,
+        "jobs_dir": jobs_dir
+    }
+
+    with tempfile.NamedTemporaryFile(
+        "w", prefix="manifest_", suffix=".json", dir=cmdstan_dir, delete=False
+    ) as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
 
 
 def sample(model_file, data_file, dir, exe_file=None, args=None):
@@ -227,6 +241,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "configuration", help="json configuration file for experiment"
+    )
+    parser.add_argument(
+        "dir", help="output directory"
     )
 
     # Sample args
@@ -283,7 +300,8 @@ if __name__ == "__main__":
         configurations = json.load(f)
 
     for cmdstan in configurations["cmdstans"]:
-        job_dir, manifest = main_setup(posteriors = configurations["posteriors"],
-                                       **setup_args, **cmdstan)
+        main_setup(dir = args.dir,
+            posteriors = configurations["posteriors"],
+            **setup_args, **cmdstan)
 
     #fits = main_sample(manifest=manifest, args=sample_args, nrounds=nrounds)
