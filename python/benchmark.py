@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import glob
 import json
 import logging
 import os
@@ -12,21 +13,38 @@ import posteriordb
 
 logging.basicConfig(level=logging.WARNING)
 
+# define POSTERIORDB env variable
+# OR
+# hack: assume that posteriordb is installed from GH clone inplace
+# pip install -e .
+pdb_path = os.environ.get(
+    "POSTERIORDB",
+    os.path.normpath(os.path.join(
+        os.path.dirname(posteriordb.__file__),
+        "..",
+        "..",
+        "..",
+        "posterior_database",
+    )),
+)
+pdb = posteriordb.PosteriorDatabase(pdb_path)
 
-def setup_model(*, cmdstan_dir, job_dir, name, model, data):
+print(f"PosteriorDB in {pdb_path}")
+
+def setup_model(*, cmdstan_dir, model_dir, name, model, data):
     """Compile Stan model."""
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
 
     model = model.replace("<-", "=")
 
     with tempfile.NamedTemporaryFile(
-        "w", prefix=f"{name}_", suffix=".stan", dir=job_dir, delete=False
+        "w", prefix=f"{name}_", suffix=".stan", dir=model_dir, delete=False
     ) as f:
         print(model, file=f)
         model_file = f.name
 
     with tempfile.NamedTemporaryFile(
-        "w", prefix=f"{name}_", suffix=".json", dir=job_dir, delete=False
+        "w", prefix=f"{name}_", suffix=".json", dir=model_dir, delete=False
     ) as f:
         json.dump(data, f, indent=2, sort_keys=True)
         data_file = f.name
@@ -35,63 +53,103 @@ def setup_model(*, cmdstan_dir, job_dir, name, model, data):
     exe_file = model_object.exe_file
     return model_file, data_file, exe_file
 
+def find_model(dir, cmdstan_dir, model):
+    benchmark_manifests = glob.glob(os.path.join(dir, "manifest_*.json"))
+    for benchmark_manifest_file in benchmark_manifests:
+        with open(benchmark_manifest_file, "r") as f:
+            benchmark_manifest = json.load(f)
 
-def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, job_dir = None):
+        if benchmark_manifest["cmdstan_dir"] == cmdstan_dir:
+            model_manifests = glob.glob(os.path.join(
+                benchmark_manifest["model_dir"],
+                "manifest_*.json")
+            )
+            for model_manifest_file in model_manifests:
+                with open(model_manifest_file, "r") as f:
+                    model_manifest = json.load(f)
+
+                if model in model_manifest["models"]:
+                    print(f"Found model '{model}' for cmdstan '{cmdstan_dir}'")
+                    return model_manifest["models"][model]
+
+    return None
+
+def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, model_dir = None):
     """Compile posteriordb binaries."""
-    if job_dir is None:
-        job_dir = tempfile.mkdtemp(prefix = "job_", dir = dir)
+    models = []
+    
+    new_posteriors = []
+    for posterior in posteriors:
+        model = find_model(dir, cmdstan_dir, posterior)
+        if not model:
+            new_posteriors.append(posterior)
+        else:
+            models.append(model)
 
-    print(f"Building models in {job_dir}")
+    if len(new_posteriors) == 0:
+        return None, models
+    
+    if model_dir is None:
+        model_dir = tempfile.mkdtemp(prefix = "model_", dir = dir)
 
-    # define POSTERIORDB env variable
-    # OR
-    # hack: assume that posteriordb is installed from GH clone inplace
-    # pip install -e .
-    pdb_path = os.environ.get(
-        "POSTERIORDB",
-        os.path.normpath(os.path.join(
-            os.path.dirname(posteriordb.__file__),
-            "..",
-            "..",
-            "..",
-            "posterior_database",
-        )),
-    )
-    pdb = posteriordb.PosteriorDatabase(pdb_path)
-
-    print(f"PosteriorDB in {pdb_path}")
+    print(f"Building models in {model_dir}")
 
     manifest = {
-        "jobs": {},
+        "models": {},
     }
-
-    if len(posteriors) == 0:
-        posteriors = pdb.posterior_names()
     
-    N = len(posteriors)
+    N = len(new_posteriors)
     print(f"PosteriorDB N models: {N}")
-    for n, name in enumerate(posteriors, 1):
+    for n, name in enumerate(new_posteriors, 1):
         try:
             posterior = pdb.posterior(name)
             print(f"Building model ({n}/{N}): {name}", flush=True)
             model_file, data_file, exe_file = setup_model(
                 cmdstan_dir=cmdstan_dir,
-                job_dir=job_dir,
+                model_dir=model_dir,
                 name=name,
                 model=posterior.model.code("stan"),
                 data=posterior.data.values(),
             )
-            manifest["jobs"][name] = {"model_file": model_file, "data_file": data_file, "exe_file": exe_file}
+            model = {"name" : name, "model_file": model_file, "data_file": data_file, "exe_file": exe_file}
+            manifest["models"][name] = model
+            models.append(model)
         except Exception as e:
             print(f"\nmodel {name} failed:\n{e}", flush=True)
 
     with tempfile.NamedTemporaryFile(
-        "w", prefix="manifest_", suffix=".json", dir=job_dir, delete=False
+        "w", prefix="manifest_", suffix=".json", dir=model_dir, delete=False
     ) as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
 
-    return job_dir
+    return model_dir, models
 
+def find_cmdstan(dir,
+                 cmdstan_branch,
+                 stan_branch,
+                 math_branch,
+                 cmdstan_url,
+                 stan_url,
+                 math_url):
+    benchmark_manifests = glob.glob(os.path.join(dir, "manifest_*.json"))
+    for benchmark_manifest_file in benchmark_manifests:
+        with open(benchmark_manifest_file, "r") as f:
+            benchmark_manifest = json.load(f)
+
+        cmdstan_manifests = glob.glob(os.path.join(benchmark_manifest["cmdstan_dir"], "manifest_*.json"))
+        for cmdstan_manifest_file in cmdstan_manifests:
+            with open(cmdstan_manifest_file, "r") as f:
+                cmdstan_manifest = json.load(f)
+
+            if (cmdstan_manifest["cmdstan_branch"] == cmdstan_branch and
+                cmdstan_manifest["stan_branch"] == stan_branch and
+                cmdstan_manifest["math_branch"] == math_branch and
+                cmdstan_manifest["cmdstan_url"] == cmdstan_url and
+                cmdstan_manifest["stan_url"] == stan_url and
+                cmdstan_manifest["math_url"] == math_url):
+                return benchmark_manifest["cmdstan_dir"]
+
+    return None
 
 def setup_cmdstan(
     *,
@@ -106,6 +164,18 @@ def setup_cmdstan(
     cmdstan_dir=None,
 ):
     """Clone and build CmdStan. Compile model binaries."""
+    # Search for pre-existing cmdstan
+    cmdstan_dir_found = find_cmdstan(dir,
+                                     cmdstan_branch,
+                                     stan_branch,
+                                     math_branch,
+                                     cmdstan_url,
+                                     stan_url,
+                                     math_url)
+
+    if cmdstan_dir_found:
+        return cmdstan_dir_found
+
     if cmdstan_dir is None:
         cmdstan_dir = tempfile.mkdtemp(prefix="cmdstan_", dir = dir)
 
@@ -114,30 +184,59 @@ def setup_cmdstan(
     build_cmdstan = os.path.normpath(os.path.join(
         os.path.dirname(__file__), "..", "R", "build_cmdstan.R"
     ))
-    cmd = (
+
+    cmdstan_clone = f"git clone --depth=1 --single-branch --branch={cmdstan_branch} {cmdstan_url} {cmdstan_dir}"
+    stan_clone = f"git clone --depth=1 --single-branch --branch={stan_branch} {stan_url} {cmdstan_dir}/stan"
+    math_clone = f"git clone --depth=1 --single-branch --branch={math_branch} {math_url} {cmdstan_dir}/stan/lib/stan_math"
+
+    print(cmdstan_clone)
+    cmdstan_clone_cmd = subprocess.run(
+        shlex.split(cmdstan_clone),
+        capture_output=True,
+    )
+
+    if cmdstan_clone_cmd.returncode == 0:
+        print("Cmdstan clone successful", flush=True)
+    else:
+        print(cmdstan_clone_cmd.stdout)
+        print(cmdstan_clone_cmd.stderr, flush=True)
+        raise Exception("Cmdstan failed to clone")
+
+    print(stan_clone)
+    stan_clone_cmd = subprocess.run(
+        shlex.split(stan_clone),
+        capture_output=True,
+    )
+
+    if stan_clone_cmd.returncode == 0:
+        print("Stan clone successful", flush=True)
+    else:
+        print(stan_clone_cmd.stdout)
+        print(stan_clone_cmd.stderr, flush=True)
+        raise Exception("Stan failed to clone")
+
+    print(math_clone)
+    math_clone_cmd = subprocess.run(
+        shlex.split(math_clone),
+        capture_output=True,
+    )
+
+    if math_clone_cmd.returncode == 0:
+        print("Math clone successful", flush=True)
+    else:
+        print(math_clone_cmd.stdout)
+        print(math_clone_cmd.stderr, flush=True)
+        raise Exception("Math failed to clone")
+    
+    build = (
         f"Rscript {build_cmdstan}"
         f" --cores={cores}"
-        f" --cmdstan_branch={cmdstan_branch}"
-        f" --stan_branch={stan_branch}"
-        f" --math_branch={math_branch}"
-        f" --cmdstan_url={cmdstan_url}"
-        f" --stan_url={stan_url}"
-        f" --math_url={math_url}"
         f" {cmdstan_dir}"
     )
 
-    manifest = {
-        "cmdstan_branch": cmdstan_branch,
-        "stan_branch": stan_branch,
-        "math_branch": math_branch,
-        "cmdstan_url": cmdstan_url,
-        "stan_url": stan_url,
-        "math_url": math_url
-    }
-
-    print(cmd)
+    print(build)
     build_cmd = subprocess.run(
-        shlex.split(cmd),
+        shlex.split(build),
         capture_output=True,
     )
 
@@ -147,6 +246,15 @@ def setup_cmdstan(
         print(build_cmd.stdout)
         print(build_cmd.stderr, flush=True)
         raise Exception("Cmdstan failed to build")
+
+    manifest = {
+        "cmdstan_branch": cmdstan_branch,
+        "stan_branch": stan_branch,
+        "math_branch": math_branch,
+        "cmdstan_url": cmdstan_url,
+        "stan_url": stan_url,
+        "math_url": math_url
+    }
 
     with tempfile.NamedTemporaryFile(
         "w", prefix="manifest_", suffix=".json", dir=cmdstan_dir, delete=False
@@ -168,9 +276,8 @@ def main_setup(
     stan_url,
     math_url,
     cmdstan_dir=None,
-    job_dir=None,
+    model_dir=None,
 ):
-
     cmdstan_dir = setup_cmdstan(
         dir = dir,
         cores=cores,
@@ -179,27 +286,28 @@ def main_setup(
         math_branch=math_branch,
         cmdstan_url=cmdstan_url,
         stan_url=stan_url,
-        math_url=math_url,
-    )
+        math_url=math_url)
 
-    job_dir = setup_posteriordb_models(
+    model_dir, models = setup_posteriordb_models(
         posteriors = posteriors,
         dir = dir,
         cmdstan_dir = cmdstan_dir
     )
 
-    manifest = {
-        "cmdstan_dir": cmdstan_dir,
-        "job_dir": job_dir
-    }
+    if model_dir:
+        manifest = {
+            "cmdstan_dir": cmdstan_dir,
+            "model_dir": model_dir
+        }
 
-    with tempfile.NamedTemporaryFile(
-        "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
-    ) as f:
-        json.dump(manifest, f, indent=2, sort_keys=True)
+        with tempfile.NamedTemporaryFile(
+                "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
+        ) as f:
+            json.dump(manifest, f, indent=2, sort_keys=True)
 
+    return [ { "cmdstan_dir" : cmdstan_dir, **model } for model in models ]
 
-def sample(model_file, data_file, dir, exe_file=None, args=None):
+def sample(dir, model_file, data_file, exe_file, args=None):
     """Run sample."""
     if args is None:
         args = {}
@@ -208,24 +316,41 @@ def sample(model_file, data_file, dir, exe_file=None, args=None):
     )
     fit = model_object.sample(data=data_file, **args)
     fit.save_csvfiles(dir=dir)
+
+    with tempfile.NamedTemporaryFile(
+            "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
+    ) as f:
+        json.dump(fit.runset.csv_files, f, indent=2, sort_keys=True)
+
     return fit.runset.csv_files
 
-
-def main_sample(manifest, args=None, nrounds=1):
+def main_sample(dir, jobs, args = None, nrounds = 1):
     """Run fits for models."""
     fits = {}
-    fit_dir = tempfile.mkdtemp(prefix="fit_")
-    for i, (name, jobs) in enumerate(manifest["jobs"].items(), 1):
-        job_fits = []
-        fit_dir_i = os.path.join(fit_dir, name, str(i))
-        os.makedirs(fit_dir_i)
+    job_dir = tempfile.mkdtemp(prefix = "job_", dir = dir)
+    manifest = {
+        "jobs" : []
+    }
+    for i, job in enumerate(jobs, 1):
+        fit_dir = tempfile.mkdtemp(prefix = "fit_", dir = job_dir)
         for _ in range(nrounds):
             try:
-                fit_paths = sample(**jobs, dir=fit_dir_i, args=args)
-                job_fits.extend(fit_paths)
+                sample(fit_dir,
+                       job["model_file"],
+                       job["data_file"],
+                       job["exe_file"],
+                       args = args)
+                manifest["jobs"].append({ "cmdstan_dir" : job["cmdstan_dir"],
+                                          "name" : job["name"],
+                                          "fit_dir" : fit_dir })
             except Exception as e:
                 print(f"Sampling failed: {name}:\n{e}", flush=True)
-        fits[name] = job_fits
+
+    with tempfile.NamedTemporaryFile(
+            "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
+    ) as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
+
     return fits
 
 
@@ -246,7 +371,10 @@ if __name__ == "__main__":
         "configuration", help="json configuration file for experiment"
     )
     parser.add_argument(
-        "dir", help="output directory"
+        "build_dir", help="build directory"
+    )
+    parser.add_argument(
+        "run_dir", help="run directory"
     )
 
     # Sample args
@@ -287,6 +415,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     setup_args_defaults = {
+        "build_dir",
+        "run_dir",
+        "configuration",
         "cores"
     }
     setup_args = {
@@ -299,23 +430,33 @@ if __name__ == "__main__":
     }
     nrounds = sample_args.pop("nrounds", 1)
 
-    if not os.path.exists(args.dir):
-        os.mkdir(args.dir)
-    else:
-        raise Exception("{0} already exists".format(args.dir))
+    if not os.path.exists(args.build_dir):
+        os.mkdir(args.build_dir)
+
+    if not os.path.exists(args.run_dir):
+        os.mkdir(args.run_dir)
         
     with open(args.configuration, "r") as f:
         configurations = json.load(f)
 
-    for cmdstan in configurations["cmdstans"]:
-        main_setup(dir = args.dir,
-            posteriors = configurations["posteriors"],
-                   cores = args.cores,
-                   cmdstan_branch = cmdstan["cmdstan_branch"],
-                   stan_branch = cmdstan["stan_branch"],
-                   math_branch= cmdstan["math_branch"],
-                   cmdstan_url = cmdstan["cmdstan_url"],
-                   stan_url = cmdstan["stan_url"],
-                   math_url = cmdstan["math_url"])
+    posteriors = configurations["posteriors"]
+    
+    if len(posteriors) == 0:
+        posteriors = pdb.posterior_names()
 
-    #fits = main_sample(manifest=manifest, args=sample_args, nrounds=nrounds)
+    jobs = []
+    for cmdstan in configurations["cmdstans"]:
+        jobs.extend(main_setup(dir = args.build_dir,
+                               posteriors = posteriors,
+                               cores = args.cores,
+                               cmdstan_branch = cmdstan["cmdstan_branch"],
+                               stan_branch = cmdstan["stan_branch"],
+                               math_branch= cmdstan["math_branch"],
+                               cmdstan_url = cmdstan["cmdstan_url"],
+                               stan_url = cmdstan["stan_url"],
+                               math_url = cmdstan["math_url"]))
+
+    fits = main_sample(dir = args.run_dir,
+                       jobs = jobs,
+                       args = sample_args,
+                       nrounds = nrounds)

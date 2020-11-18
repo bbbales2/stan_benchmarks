@@ -19,5 +19,6 @@
 	    "configurations": ["algorithm=hmc metric=dense_e"]
 	}
     ],
-    "posteriors" : [ "eight_schools-eight_schools_noncentered" ]
+    "posteriors" : [ "eight_schools-eight_schools_noncentered",
+		     "eight_schools-eight_schools_centered" ]
 }
