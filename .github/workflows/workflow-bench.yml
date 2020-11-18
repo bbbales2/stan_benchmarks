@@ -52,4 +52,4 @@ jobs:
 
       - name: Build models (defaults)
         run: |
-          python python/benchmark.py
+          python python/benchmark.py examples/issue-2894.json
