@@ -449,12 +449,12 @@ if __name__ == "__main__":
     
     build_dir = args.build_dir
     if build_dir is None:
-        build_dir = tempfile.mkdtemp(prefix = "build_", dir = dir)
+        build_dir = tempfile.mkdtemp(prefix = "build_")
     os.makedirs(build_dir, exist_ok=True)
 
     run_dir = args.run_dir
     if run_dir is None:
-        run_dir = tempfile.mkdtemp(prefix = "run_", dir = dir)
+        run_dir = tempfile.mkdtemp(prefix = "run_")
     os.makedirs(run_dir, exist_ok=True)
 
     with open(args.configuration, "r") as f:
