@@ -39,7 +39,7 @@ def setup_model(*, cmdstan_dir, job_dir, name, model, data):
 def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, job_dir = None):
     """Compile posteriordb binaries."""
     if job_dir is None:
-        job_dir = tempfile.mkdtemp(prefix = "jobs_", dir = dir)
+        job_dir = tempfile.mkdtemp(prefix = "job_", dir = dir)
 
     print(f"Building models in {job_dir}")
 
@@ -65,11 +65,14 @@ def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, job_dir = None):
         "jobs": {},
     }
 
-    N = len(pdb.posterior_names())
+    if len(posteriors) == 0:
+        posteriors = pdb.posterior_names()
+    
+    N = len(posteriors)
     print(f"PosteriorDB N models: {N}")
-    for n, name in enumerate(pdb.posterior_names(), 1):
-        posterior = pdb.posterior(name)
+    for n, name in enumerate(posteriors, 1):
         try:
+            posterior = pdb.posterior(name)
             print(f"Building model ({n}/{N}): {name}", flush=True)
             model_file, data_file, exe_file = setup_model(
                 cmdstan_dir=cmdstan_dir,
@@ -87,7 +90,7 @@ def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, job_dir = None):
     ) as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
 
-    return job_dir, manifest
+    return job_dir
 
 
 def setup_cmdstan(
@@ -128,8 +131,8 @@ def setup_cmdstan(
         "stan_branch": stan_branch,
         "math_branch": math_branch,
         "cmdstan_url": cmdstan_url,
-        "stan_branch": stan_url,
-        "math_branch": math_url
+        "stan_url": stan_url,
+        "math_url": math_url
     }
 
     print(cmd)
@@ -187,11 +190,11 @@ def main_setup(
 
     manifest = {
         "cmdstan_dir": cmdstan_dir,
-        "jobs_dir": jobs_dir
+        "job_dir": job_dir
     }
 
     with tempfile.NamedTemporaryFile(
-        "w", prefix="manifest_", suffix=".json", dir=cmdstan_dir, delete=False
+        "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
     ) as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
 
@@ -296,12 +299,23 @@ if __name__ == "__main__":
     }
     nrounds = sample_args.pop("nrounds", 1)
 
+    if not os.path.exists(args.dir):
+        os.mkdir(args.dir)
+    else:
+        raise Exception("{0} already exists".format(args.dir))
+        
     with open(args.configuration, "r") as f:
         configurations = json.load(f)
 
     for cmdstan in configurations["cmdstans"]:
         main_setup(dir = args.dir,
             posteriors = configurations["posteriors"],
-            **setup_args, **cmdstan)
+                   cores = args.cores,
+                   cmdstan_branch = cmdstan["cmdstan_branch"],
+                   stan_branch = cmdstan["stan_branch"],
+                   math_branch= cmdstan["math_branch"],
+                   cmdstan_url = cmdstan["cmdstan_url"],
+                   stan_url = cmdstan["stan_url"],
+                   math_url = cmdstan["math_url"])
 
     #fits = main_sample(manifest=manifest, args=sample_args, nrounds=nrounds)

@@ -6,7 +6,7 @@
 	    "math_branch": "develop",
 	    "math_url": "http://github.com/stan-dev/math",
 	    "stan_branch": "develop",
-	    "stan_url": "http://github.com/stan-dev/stan"
+	    "stan_url": "http://github.com/stan-dev/stan",
 	    "configurations": ["algorithm=hmc metric=dense_e"]
 	},
 	{
