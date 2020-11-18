@@ -143,6 +143,7 @@ def setup_cmdstan(
 
 def main_setup(
     *,
+        posteriors,
     cores,
     cmdstan_branch,
     stan_branch,
@@ -171,10 +172,11 @@ def main_setup(
         "cmdstan_url": cmdstan_url,
         "stan_url": stan_url,
         "math_url": math_url,
+        "configurations": configurations
     }
 
     job_dir, manifest = setup_posteriordb_models(
-        cmdstan_dir=cmdstan_dir, manifest_info=manifest_info
+        posteriors = posteriors, cmdstan_dir=cmdstan_dir, manifest_info=manifest_info
     )
 
     return cmdstan_dir, job_dir, manifest
@@ -224,20 +226,7 @@ if __name__ == "__main__":
         help="Number of cores to use",
     )
     parser.add_argument(
-        "--cmdstan_branch", default="develop", help="cmdstan repo branch"
-    )
-    parser.add_argument("--stan_branch", default="develop", help="stan repo branch")
-    parser.add_argument("--math_branch", default="develop", help="math repo branch")
-    parser.add_argument(
-        "--cmdstan_url",
-        default="http://github.com/stan-dev/cmdstan",
-        help="cmdstan repo url",
-    )
-    parser.add_argument(
-        "--stan_url", default="http://github.com/stan-dev/stan", help="stan repo url"
-    )
-    parser.add_argument(
-        "--math_url", default="http://github.com/stan-dev/math", help="math repo url"
+        "configuration", help="json configuration file for experiment"
     )
 
     # Sample args
@@ -278,13 +267,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     setup_args_defaults = {
-        "cores",
-        "cmdstan_branch",
-        "stan_branch",
-        "math_branch",
-        "cmdstan_url",
-        "stan_url",
-        "math_url",
+        "cores"
     }
     setup_args = {
         key: value for key, value in vars(args).items() if key in setup_args_defaults
@@ -296,6 +279,11 @@ if __name__ == "__main__":
     }
     nrounds = sample_args.pop("nrounds", 1)
 
-    cmdstan_dir, job_dir, manifest = main_setup(**setup_args)
+    with open(args.configuration, "r") as f:
+        configurations = json.load(f)
 
-    fits = main_sample(manifest=manifest, args=sample_args, nrounds=nrounds)
+    for cmdstan in configurations["cmdstans"]:
+        job_dir, manifest = main_setup(posteriors = configurations["posteriors"],
+                                       **setup_args, **cmdstan)
+
+    #fits = main_sample(manifest=manifest, args=sample_args, nrounds=nrounds)
