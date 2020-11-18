@@ -364,16 +364,16 @@ if __name__ == "__main__":
         "--configuration", help="json configuration file for experiment"
     )
     parser.add_argument(
+        "build_dir", default=None, help="build directory"
+    )
+    parser.add_argument(
+        "run_dir", default=None, help="run directory"
+    )
+    parser.add_argument(
         "--cores",
         type=int,
         default=1,
         help="Number of cores to use",
-    )
-    parser.add_argument(
-        "--build_dir", default=None, help="build directory"
-    )
-    parser.add_argument(
-        "--run_dir", default=None, help="run directory"
     )
 
     # Sample args
