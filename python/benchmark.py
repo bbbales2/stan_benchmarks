@@ -360,7 +360,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-
+    parser.add_argument(
+        "--configuration", help="json configuration file for experiment"
+    )
     parser.add_argument(
         "--cores",
         type=int,
@@ -368,13 +370,10 @@ if __name__ == "__main__":
         help="Number of cores to use",
     )
     parser.add_argument(
-        "configuration", help="json configuration file for experiment"
+        "--build_dir", default=None, help="build directory"
     )
     parser.add_argument(
-        "build_dir", help="build directory"
-    )
-    parser.add_argument(
-        "run_dir", help="run directory"
+        "--run_dir", default=None, help="run directory"
     )
 
     # Sample args
@@ -423,19 +422,41 @@ if __name__ == "__main__":
     setup_args = {
         key: value for key, value in vars(args).items() if key in setup_args_defaults
     }
+    
+    sample_args_defaults = {
+        "parallel_chains",
+        "threads_per_chain",
+        "seed",
+        "iter_warmup",
+        "iter_sampling",
+        "thin",
+        "max_treedepth",
+        "metric",
+        "step_size",
+        "adapt_engaged",
+        "adapt_delta",
+        "adapt_init_phase",
+        "adapt_metric_window",
+        "adapt_step_size",
+        "fixed_param",
+    }
+    
     sample_args = {
         key: value
         for key, value in vars(args).items()
-        if key not in setup_args_defaults
+        if key in sample_args_defaults
     }
-    nrounds = sample_args.pop("nrounds", 1)
+    
+    build_dir = args.build_dir
+    if build_dir is None:
+        build_dir = tempfile.mkdtemp(prefix = "build_", dir = dir)
+    os.makedirs(build_dir, exist_ok=True)
 
-    if not os.path.exists(args.build_dir):
-        os.mkdir(args.build_dir)
+    run_dir = args.run_dir
+    if run_dir is None:
+        run_dir = tempfile.mkdtemp(prefix = "run_", dir = dir)
+    os.makedirs(run_dir, exist_ok=True)
 
-    if not os.path.exists(args.run_dir):
-        os.mkdir(args.run_dir)
-        
     with open(args.configuration, "r") as f:
         configurations = json.load(f)
 
@@ -446,7 +467,7 @@ if __name__ == "__main__":
 
     jobs = []
     for cmdstan in configurations["cmdstans"]:
-        jobs.extend(main_setup(dir = args.build_dir,
+        jobs.extend(main_setup(dir = build_dir,
                                posteriors = posteriors,
                                cores = args.cores,
                                cmdstan_branch = cmdstan["cmdstan_branch"],
@@ -459,4 +480,4 @@ if __name__ == "__main__":
     fits = main_sample(dir = args.run_dir,
                        jobs = jobs,
                        args = sample_args,
-                       nrounds = nrounds)
+                       nrounds = args.nrounds)
