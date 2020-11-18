@@ -8,4 +8,5 @@ parser$add_argument("--cores", type = "integer", default = 1, help = "Number of 
 
 args = parser$parse_args()
 
+cmdstanr::set_cmdstan_path(args$dir)
 cmdstanr::rebuild_cmdstan(dir = args$dir, cores = args$cores)
