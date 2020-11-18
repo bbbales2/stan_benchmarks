@@ -361,13 +361,13 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--configuration", help="json configuration file for experiment"
+        "configuration", help="json configuration file for experiment"
     )
     parser.add_argument(
-        "build_dir", default=None, help="build directory"
+        "--build_dir", default=None, help="build directory"
     )
     parser.add_argument(
-        "run_dir", default=None, help="run directory"
+        "--run_dir", default=None, help="run directory"
     )
     parser.add_argument(
         "--cores",
