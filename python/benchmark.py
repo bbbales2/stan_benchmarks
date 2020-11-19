@@ -390,38 +390,38 @@ if __name__ == "__main__":
 
     # Sample args
     parser.add_argument(
-        "--nrounds", default=1, help="number of times sampling is done (sample)"
+        "--nrounds", default=1, type=int, help="number of times sampling is done (sample)"
     )
-    parser.add_argument("--chains", default=1, help="number of chains (sample)")
+    parser.add_argument("--chains", default=1, type=int, help="number of chains (sample)")
     parser.add_argument(
-        "--parallel_chains", default=1, help="number of parallel chains (sample)"
-    )
-    parser.add_argument(
-        "--threads_per_chain", default=1, help="threads per chain (sample)"
-    )
-    parser.add_argument("--seed", default=None, help="Seed (sample)")
-    parser.add_argument(
-        "--iter_warmup", default=None, help="Number of warmup samples (sample)"
+        "--parallel_chains", default=1, type=int, help="number of parallel chains (sample)"
     )
     parser.add_argument(
-        "--iter_sampling", default=None, help="Number of samples (sample)"
+        "--threads_per_chain", default=1, type=int, help="threads per chain (sample)"
     )
-    parser.add_argument("--thin", default=None, help="Thin (sample)")
-    parser.add_argument("--max_treedepth", default=None, help="Max treedepth (sample)")
+    parser.add_argument("--seed", default=None, type=int, help="Seed (sample)")
+    parser.add_argument(
+        "--iter_warmup", default=None, type=int, help="Number of warmup samples (sample)"
+    )
+    parser.add_argument(
+        "--iter_sampling", default=None, type=int, help="Number of samples (sample)"
+    )
+    parser.add_argument("--thin", default=None, type=int, help="Thin (sample)")
+    parser.add_argument("--max_treedepth", default=None, type=int, help="Max treedepth (sample)")
     parser.add_argument("--metric", default=None, help="Metric (sample)")
-    parser.add_argument("--step_size", default=None, help="Step size (sample)")
-    parser.add_argument("--adapt_engaged", default=True, help="Adapt engaged (sample)")
-    parser.add_argument("--adapt_delta", default=None, help="Adapt delta (sample)")
+    parser.add_argument("--step_size", default=None, type=float, help="Step size (sample)")
+    parser.add_argument("--adapt_engaged", default=True, type=bool, help="Adapt engaged (sample)")
+    parser.add_argument("--adapt_delta", default=None, type=float, help="Adapt delta (sample)")
     parser.add_argument(
-        "--adapt_init_phase", default=None, help="Adapt init phase (sample)"
+        "--adapt_init_phase", default=None, type=int, help="Adapt init phase (sample)"
     )
     parser.add_argument(
-        "--adapt_metric_window", default=None, help="Adapt metric window (sample)"
+        "--adapt_metric_window", default=None, type=int, help="Adapt metric window (sample)"
     )
     parser.add_argument(
-        "--adapt_step_size", default=None, help="Adapt step size (sample)"
+        "--adapt_step_size", default=None, type=int, help="Adapt step size (sample)"
     )
-    parser.add_argument("--fixed_param", default=False, help="Fixed param (sample)")
+    parser.add_argument("--fixed_param", default=False, type=bool, help="Fixed param (sample)")
 
     args = parser.parse_args()
 
