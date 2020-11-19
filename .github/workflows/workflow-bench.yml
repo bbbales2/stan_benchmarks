@@ -52,4 +52,4 @@ jobs:
 
       - name: Build models (defaults)
         run: |
-          python python/benchmark.py examples/issue-2894.json
+          python python/benchmark.py examples/issue-2894.json  --cores 1 --chains 1 --nrounds 10 --parallel_chains 1 --threads_per_chain 1 --iter_warmup 2000 --iter_sampling 50000
