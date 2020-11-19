@@ -319,7 +319,7 @@ def sample(dir, model_file, data_file, exe_file, args=None):
     fit.save_csvfiles(dir=dir)
 
     with tempfile.NamedTemporaryFile(
-            "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
+            "w", prefix="manifest_fit_", suffix=".json", dir=dir, delete=False
     ) as f:
         json.dump(fit.runset.csv_files, f, indent=2, sort_keys=True)
 
@@ -343,11 +343,14 @@ def main_sample(dir, jobs, args = None, nrounds = 1):
         else:
             fit_dir = fit_dirs[i]
         try:
-            sample(fit_dir,
+            fit= sample(fit_dir,
                    job["model_file"],
                    job["data_file"],
                    job["exe_file"],
                    args = args)
+            if job["name"] not in fits:
+                fits[job["name"]] = []
+            fits[job["name"]].append(fit)
             manifest["jobs"].append({ "cmdstan_dir" : job["cmdstan_dir"],
                                       "name" : job["name"],
                                       "fit_dir" : fit_dir })
