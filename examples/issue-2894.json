@@ -1,0 +1,24 @@
+{
+    "cmdstans" : [
+	{
+	    "cmdstan_branch": "develop",
+	    "cmdstan_url": "http://github.com/stan-dev/cmdstan",
+	    "math_branch": "develop",
+	    "math_url": "http://github.com/stan-dev/math",
+	    "stan_branch": "develop",
+	    "stan_url": "http://github.com/stan-dev/stan",
+	    "configurations": ["algorithm=hmc metric=dense_e"]
+	},
+	{
+	    "cmdstan_branch": "develop",
+	    "cmdstan_url": "http://github.com/stan-dev/cmdstan",
+	    "math_branch": "develop",
+	    "math_url": "http://github.com/stan-dev/math",
+	    "stan_branch": "feature/issue-2881-dense-metric-decomposition",
+	    "stan_url": "http://github.com/stan-dev/stan",
+	    "configurations": ["algorithm=hmc metric=dense_e"]
+	}
+    ],
+    "posteriors" : [ "eight_schools-eight_schools_noncentered",
+		     "eight_schools-eight_schools_centered" ]
+}
