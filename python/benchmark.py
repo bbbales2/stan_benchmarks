@@ -4,6 +4,7 @@ import glob
 import json
 import logging
 import os
+import random
 import shlex
 import subprocess
 import tempfile
@@ -29,7 +30,7 @@ pdb_path = os.environ.get(
 )
 pdb = posteriordb.PosteriorDatabase(pdb_path)
 
-print(f"PosteriorDB in {pdb_path}")
+print(f"PosteriorDB in {pdb_path}", flush=True)
 
 def setup_model(*, cmdstan_dir, model_dir, name, model, data):
     """Compile Stan model."""
@@ -331,27 +332,35 @@ def main_sample(dir, jobs, args = None, nrounds = 1):
     manifest = {
         "jobs" : []
     }
-    for i, job in enumerate(jobs, 1):
-        fit_dir = tempfile.mkdtemp(prefix = "fit_", dir = job_dir)
-        for _ in range(nrounds):
-            try:
-                sample(fit_dir,
-                       job["model_file"],
-                       job["data_file"],
-                       job["exe_file"],
-                       args = args)
-                manifest["jobs"].append({ "cmdstan_dir" : job["cmdstan_dir"],
-                                          "name" : job["name"],
-                                          "fit_dir" : fit_dir })
-            except Exception as e:
-                print(f"Sampling failed: {name}:\n{e}", flush=True)
+    order = nrounds * list(range(len(jobs)))
+    random.shuffle(order)
+    fit_dirs = {}
+    for i in order:
+        job = jobs[i]
+        if i not in fit_dirs:
+            fit_dir = tempfile.mkdtemp(prefix = "fit_", dir = job_dir)
+            fit_dirs[i] = fit_dir
+        else:
+            fit_dir = fit_dirs[i]
+        try:
+            sample(fit_dir,
+                   job["model_file"],
+                   job["data_file"],
+                   job["exe_file"],
+                   args = args)
+            manifest["jobs"].append({ "cmdstan_dir" : job["cmdstan_dir"],
+                                      "name" : job["name"],
+                                      "fit_dir" : fit_dir })
+        except Exception as e:
+            print(f"Sampling failed: {job["name"]} -> cmdstan {job["cmdstan_dir"]}:\n{e}", flush=True)
 
     with tempfile.NamedTemporaryFile(
             "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
     ) as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
+        manifest_path = f.name
 
-    return fits
+    return fits, manifest_path
 
 
 if __name__ == "__main__":
@@ -477,7 +486,9 @@ if __name__ == "__main__":
                                stan_url = cmdstan["stan_url"],
                                math_url = cmdstan["math_url"]))
 
-    fits = main_sample(dir = args.run_dir,
+    fits, manifest = main_sample(dir = args.run_dir,
                        jobs = jobs,
                        args = sample_args,
                        nrounds = args.nrounds)
+    print(fits)
+    print(manifest)
