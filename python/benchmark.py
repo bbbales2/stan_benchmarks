@@ -352,7 +352,7 @@ def main_sample(dir, jobs, args = None, nrounds = 1):
                                       "name" : job["name"],
                                       "fit_dir" : fit_dir })
         except Exception as e:
-            print(f"Sampling failed: {job["name"]} -> cmdstan {job["cmdstan_dir"]}:\n{e}", flush=True)
+            print(f'Sampling failed: {job["name"]} -> cmdstan {job["cmdstan_dir"]}:\n{e}', flush=True)
 
     with tempfile.NamedTemporaryFile(
             "w", prefix="manifest_", suffix=".json", dir=dir, delete=False
