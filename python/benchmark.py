@@ -8,6 +8,7 @@ import random
 import shlex
 import subprocess
 import tempfile
+from collections import Counter
 
 import cmdstanpy
 import posteriordb
@@ -334,6 +335,7 @@ def main_sample(dir, jobs, args = None, nrounds = 1):
     }
     order = nrounds * list(range(len(jobs)))
     random.shuffle(order)
+    count = Counter()
     fit_dirs = {}
     for i in order:
         job = jobs[i]
@@ -343,6 +345,10 @@ def main_sample(dir, jobs, args = None, nrounds = 1):
         else:
             fit_dir = fit_dirs[i]
         try:
+            # offset for unique filename
+            args["chain_ids"] = count[i] + 1
+            chains = args.get("chains", 1)
+            count[i] += chains
             fit= sample(fit_dir,
                    job["model_file"],
                    job["data_file"],
@@ -436,6 +442,7 @@ if __name__ == "__main__":
     }
     
     sample_args_defaults = {
+        "chains",
         "parallel_chains",
         "threads_per_chain",
         "seed",
