@@ -24,12 +24,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m")"
+        shell: bash
+
       - name: Cache posteriordb database
         uses: actions/cache@v2
         with:
           path: |
             ~/.posteriordb
-          key: ${{ runner.os }}-${{ hashFiles('~/.posteriordb/**') }}
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}
 
       - name: Install Ubuntu dependencies
         run: sudo apt-get install libcurl4-openssl-dev
