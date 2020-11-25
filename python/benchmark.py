@@ -342,7 +342,9 @@ def main_sample(dir, jobs, args=None, nrounds=1):
                 {
                     "cmdstan_dir": job["cmdstan_dir"],
                     "name": job["name"],
+                    "fit_files": fit,
                     "fit_dir": fit_dir,
+                    "args": args,
                     "cmdstan_info": job["cmdstan_info"],
                 }
             )
