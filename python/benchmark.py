@@ -267,7 +267,7 @@ def main_setup(
     cmdstan_dir=None,
     model_dir=None,
 ):
-    cmdstan_dir = setup_cmdstan(
+    cmdstan_info = dict(
         dir=dir,
         cores=cores,
         cmdstan_branch=cmdstan_branch,
@@ -277,6 +277,7 @@ def main_setup(
         stan_url=stan_url,
         math_url=math_url,
     )
+    cmdstan_dir = setup_cmdstan(**cmdstan_info)
 
     model_dir, models = setup_posteriordb_models(
         posteriors=posteriors, dir=dir, cmdstan_dir=cmdstan_dir
@@ -290,7 +291,10 @@ def main_setup(
         ) as f:
             json.dump(manifest, f, indent=2, sort_keys=True)
 
-    return [{"cmdstan_dir": cmdstan_dir, **model} for model in models]
+    return [
+        {"cmdstan_dir": cmdstan_dir, **model, "cmdstan_info": cmdstan_info}
+        for model in models
+    ]
 
 
 def sample(dir, model_file, data_file, exe_file, args=None):
@@ -303,11 +307,6 @@ def sample(dir, model_file, data_file, exe_file, args=None):
     )
     fit = model_object.sample(data=data_file, **args)
     fit.save_csvfiles(dir=dir)
-
-    with tempfile.NamedTemporaryFile(
-        "w", prefix="manifest_fit_", suffix=".json", dir=dir, delete=False
-    ) as f:
-        json.dump(fit.runset.csv_files, f, indent=2, sort_keys=True)
 
     return fit.runset.csv_files
 
@@ -344,6 +343,7 @@ def main_sample(dir, jobs, args=None, nrounds=1):
                     "cmdstan_dir": job["cmdstan_dir"],
                     "name": job["name"],
                     "fit_dir": fit_dir,
+                    "cmdstan_info": job["cmdstan_info"],
                 }
             )
         except Exception as e:
