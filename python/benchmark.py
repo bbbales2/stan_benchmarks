@@ -15,7 +15,7 @@ import posteriordb
 
 logging.basicConfig(level=logging.WARNING)
 
-pdb = posteriordb.PosteriorDatabaseGithub()
+pdb = posteriordb.PosteriorDatabaseGithub(overwrite=True)
 
 print(f"PosteriorDB in {str(pdb.path)}", flush=True)
 

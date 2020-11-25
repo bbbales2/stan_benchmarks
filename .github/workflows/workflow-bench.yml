@@ -24,6 +24,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache posteriordb database
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.posteriordb
+          key: ${{ runner.os }}-${{ hashFiles('~/.posteriordb/**') }}
+
       - name: Install Ubuntu dependencies
         run: sudo apt-get install libcurl4-openssl-dev
 
@@ -57,11 +64,5 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: success()
         with:
-          name: fit_results_${{ matrix.config.os}}
-          path: fit_dir
-
-      - uses: actions/upload-artifact@v2
-        if: success()
-        with:
-          name: fit_results_${{ matrix.config.os}}
+          name: fit_results_${{ matrix.config.os }}
           path: fit_dir
