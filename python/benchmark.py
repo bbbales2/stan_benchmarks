@@ -19,7 +19,6 @@ pdb = posteriordb.PosteriorDatabaseGithub(overwrite=True)
 
 print(f"PosteriorDB in {str(pdb.path)}", flush=True)
 
-
 def setup_model(*, cmdstan_dir, model_dir, name, model, data):
     """Compile Stan model."""
     cmdstanpy.set_cmdstan_path(cmdstan_dir)
@@ -119,9 +118,29 @@ def setup_posteriordb_models(*, posteriors, dir, cmdstan_dir, model_dir=None):
 
     return model_dir, models
 
+def get_head_commit(url, branch):
+    cmd = f"git ls-remote --heads {url} {branch}"
+    run = subprocess.run(
+        shlex.split(cmd),
+        capture_output=True,
+    )
+
+    if run.returncode != 0:
+        print(f"stdout: {run.stdout}")
+        print(f"stderr: {run.stderr}", flush=True)
+        raise Exception(f"Exception running: {cmd}")
+
+    out = run.stdout.decode('utf-8').strip().split()
+
+    if len(out) == 0:
+        print(f"stdout: {run.stdout}")
+        print(f"stderr: {run.stderr}", flush=True)
+        raise Exception(f"Expected git commit id, found nothing in: {cmd}")
+
+    return out[0]
 
 def find_cmdstan(
-    dir, cmdstan_branch, stan_branch, math_branch, cmdstan_url, stan_url, math_url
+    dir, cmdstan_commit, stan_commit, math_commit, cmdstan_url, stan_url, math_url
 ):
     benchmark_manifests = glob.glob(os.path.join(dir, "manifest_*.json"))
     for benchmark_manifest_file in benchmark_manifests:
@@ -136,9 +155,10 @@ def find_cmdstan(
                 cmdstan_manifest = json.load(f)
 
             if (
-                cmdstan_manifest["cmdstan_branch"] == cmdstan_branch
-                and cmdstan_manifest["stan_branch"] == stan_branch
-                and cmdstan_manifest["math_branch"] == math_branch
+                { "cmdstan_commit", "stan_commit", "math_commit", "cmdstan_url", "stan_url", "math_url" }.issubset(cmdstan_manifest.keys())
+                and cmdstan_manifest["cmdstan_commit"] == cmdstan_commit
+                and cmdstan_manifest["stan_commit"] == stan_commit
+                and cmdstan_manifest["math_commit"] == math_commit
                 and cmdstan_manifest["cmdstan_url"] == cmdstan_url
                 and cmdstan_manifest["stan_url"] == stan_url
                 and cmdstan_manifest["math_url"] == math_url
@@ -160,10 +180,14 @@ def setup_cmdstan(
     math_url,
     cmdstan_dir=None,
 ):
+    cmdstan_commit = get_head_commit(cmdstan_url, cmdstan_branch)
+    stan_commit = get_head_commit(stan_url, stan_branch)
+    math_commit = get_head_commit(math_url, math_branch)
+
     """Clone and build CmdStan. Compile model binaries."""
     # Search for pre-existing cmdstan
     cmdstan_dir_found = find_cmdstan(
-        dir, cmdstan_branch, stan_branch, math_branch, cmdstan_url, stan_url, math_url
+        dir, cmdstan_commit, stan_commit, math_commit, cmdstan_url, stan_url, math_url
     )
 
     if cmdstan_dir_found:
@@ -237,6 +261,9 @@ def setup_cmdstan(
         raise Exception("Cmdstan failed to build")
 
     manifest = {
+        "cmdstan_commit": cmdstan_commit,
+        "stan_commit": stan_commit,
+        "math_commit": math_commit,
         "cmdstan_branch": cmdstan_branch,
         "stan_branch": stan_branch,
         "math_branch": math_branch,
