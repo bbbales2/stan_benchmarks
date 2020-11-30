@@ -64,11 +64,16 @@ jobs:
 
       - name: Build models (defaults)
         run: |
-          mkdir fit_dir
-          python python/benchmark.py examples/issue-2894.json --run_dir fit_dir --cores 1 --chains 1 --nrounds 10 --parallel_chains 1 --threads_per_chain 1 --iter_warmup 2000 --iter_sampling 50000
+          mkdir build_dir
+          python python/build.py --cores 1 --build_dir build_dir examples/issue-2894.json
+
+      - name: Run models (defaults)
+        run: |
+          mkdir run_dir
+          python python/run.py examples/issue-2894.json build_dir --run_dir run_dir --cores 1 --chains 1 --nrounds 10 --parallel_chains 1 --threads_per_chain 1 --iter_warmup 2000 --iter_sampling 50000
 
       - uses: actions/upload-artifact@v2
         if: success()
         with:
           name: fit_results_${{ matrix.config.os }}
-          path: fit_dir
+          path: run_dir
